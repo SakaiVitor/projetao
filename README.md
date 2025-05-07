@@ -1,5 +1,32 @@
-
 # Estrutura Modular do Jogo - Labirinto com Enigmas
+
+## ✅ Instalação
+
+Este projeto requer **Python 3.10** e recomenda o uso de um **ambiente virtual**.
+
+### 1. Ativando o ambiente virtual
+
+No Windows:
+
+```bash
+.\.venv\Scripts\activate
+```
+
+### 2. Instalando as dependências
+
+Certifique-se de que o `pip` está ativo no ambiente. O projeto foi testado com:
+
+- `pip 25.1.1`
+- `Python 3.10`
+- Ambiente virtual localizado em `.venv/`
+
+Execute o seguinte comando:
+
+```bash
+pip install -r requirements.txt
+```
+
+---
 
 ## Arquivos Principais
 
@@ -39,5 +66,3 @@
 
 ### /config/
 - **settings.py**: Configurações gerais como seed, paths e parâmetros de jogo.
-
----
