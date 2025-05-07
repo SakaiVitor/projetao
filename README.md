@@ -16,8 +16,11 @@ No Windows:
 
 Certifique-se de que o `pip` está ativo no ambiente. O projeto foi testado com:
 
-- `pip 25.1.1`
-- `Python 3.10`
+Atualize o pip:
+- `python -m pip install --upgrade pip`
+
+- pip 25.1.1
+- Python 3.10
 - Ambiente virtual localizado em `.venv/`
 
 Execute o seguinte comando:
