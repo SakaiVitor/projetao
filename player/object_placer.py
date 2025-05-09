@@ -23,7 +23,7 @@ class ObjectPlacer:
         self.preview_node.setTransparency(True)
         self.preview_node.setColorScale(1.5, 1.5, 1.5, 0.5)
         self.preview_node.reparentTo(self.app.camera)
-        self.preview_node.setPos(0, 5, -1)
+        self.preview_node.setPos(0, 5, 0.5)
 
         # Roda o preview
         self.preview_rotation = self.preview_node.hprInterval(2, (360, 0, 0))

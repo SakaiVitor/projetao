@@ -6,6 +6,8 @@ from player.controller import PlayerController
 from ui.hud import HUD
 from prompt.prompt_manager import PromptManager
 from player.object_placer import ObjectPlacer
+import shutil
+import os
 
 
 class Game(ShowBase):
@@ -75,12 +77,19 @@ class Game(ShowBase):
 
         async def async_flow():
             print("⚙️ [Game] async_flow executando...")
-            obj_path = await self.prompt_manager.request_model(prompt)
-            print("📦 [Game] Modelo salvo em:", obj_path)
-            await self.placer.start_placement_from_file(obj_path)
+            obj_temp_path = await self.prompt_manager.request_model(prompt)
+            print("📦 [Game] Modelo salvo em (temp):", obj_temp_path)
 
-        # agende no loop que já está sendo pumpado
+            # Copia para um caminho fixo e confiável
+            final_path = os.path.join("assets", "tmp_models", "mesh.obj")
+            os.makedirs(os.path.dirname(final_path), exist_ok=True)
+            shutil.copy(obj_temp_path, final_path)
+
+            print("✅ [Game] Modelo copiado para:", final_path)
+            await self.placer.start_placement_from_file(final_path)
+
         self.loop.create_task(async_flow())
+
 
 
 if __name__ == "__main__":
