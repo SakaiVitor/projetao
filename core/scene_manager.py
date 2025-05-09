@@ -21,8 +21,8 @@ class SceneManager:
         self.exit_dir    = None                    # 'north' | 'south' | 'east' | 'west'
 
         self.npc_manager = NPCManager(app)
-        self.decorative_models = ["models/misc/rgbCube"]
-        self.textures = [f"assets/textures/grass_{i:02}.jpg" for i in range(1, 11)]
+        self.decorative_models = [f"assets/models/objects/{i:01}.obj" for i in range(1, 16)]
+        self.textures = [f"assets/textures/floor{i:01}.jpg" for i in range(1, 7)]
         self.room_positions = [LVector3f(0, 0, 0)]
 
     # ───────────────────────────  PÚBLICOS  ────────────────────────────
@@ -176,22 +176,33 @@ class SceneManager:
             npc.reparentTo(parent)
 
     def _scatter_decor(self, parent):
-        decor_dirs = [d for d in ("north", "south", "west", "east") if d not in (self.exit_dir,)]
+        decor_dirs = [d for d in ("north", "south", "west", "east") if d != self.exit_dir]
         pos_map = {
-            "north": (0,  self.WALL_LEN-3, 0),
-            "south": (0, -self.WALL_LEN+3, 0),
-            "west":  (-self.WALL_LEN+3, 0, 0),
-            "east":  ( self.WALL_LEN-3, 0, 0),
+            "north": (0, self.WALL_LEN - 3, 0),
+            "south": (0, -self.WALL_LEN + 3, 0),
+            "west": (-self.WALL_LEN + 3, 0, 0),
+            "east": (self.WALL_LEN - 3, 0, 0),
         }
 
+        placed_positions = []
+
         for d in decor_dirs:
+            px, py, pz = pos_map[d]
             for _ in range(random.randint(1, 3)):
-                model = self.app.loader.loadModel(random.choice(self.decorative_models))
-                dx, dy = random.uniform(-1, 1), random.uniform(-1, 1)
-                px, py, pz = pos_map[d]
-                model.setPos(px + dx, py + dy, pz)
-                model.setScale(random.uniform(0.25, 0.5))  # menores
-                model.reparentTo(parent)
+                model_path = random.choice(self.decorative_models)
+                for _attempt in range(10):  # tenta achar posição não sobreposta
+                    dx, dy = random.uniform(-3, 3), random.uniform(-3, 3)
+                    pos = LVector3f(px + dx, py + dy, pz + 0.3)
+
+                    if all((pos - other).length() >= 1.5 for other in placed_positions):
+                        model = self.app.loader.loadModel(model_path)
+                        model.setPos(pos)
+                        model.setScale(random.uniform(1, 1.5))
+                        model.setH(random.uniform(0, 360))  # rotação horizontal
+                        model.setP(random.uniform(-10, 10))  # leve inclinação opcional
+                        model.reparentTo(parent)
+                        placed_positions.append(pos)
+                        break
 
     # ───────── misc ─────────
     def _apply_random_texture_or_color(self, node):
