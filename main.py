@@ -4,6 +4,9 @@ from core.engine import Engine
 from core.scene_manager import SceneManager
 from player.controller import PlayerController
 from ui.hud import HUD
+from prompt.prompt_manager import PromptManager
+from player.object_placer import ObjectPlacer
+
 
 class Game(ShowBase):
     def __init__(self):
@@ -12,9 +15,16 @@ class Game(ShowBase):
         self.scene_manager = SceneManager(self)
         self.player_controller = PlayerController(self)
         self.hud = HUD(self)
+        self.placer = ObjectPlacer(self)  # instancia o colocador de objetos
 
-        self.scene_manager.force_doors_open = False  # Porta começa visível
+        self.loop = asyncio.get_event_loop()
+        self.taskMgr.add(self._poll_asyncio, "asyncioPump")
+
+        self.scene_manager.force_doors_open = False
         self.scene_manager.load_first_room()
+
+        self.prompt_manager = PromptManager()
+        self.placer = ObjectPlacer(self)
 
         L = SceneManager.WALL_LEN
         self.entry_offsets = {
@@ -26,25 +36,20 @@ class Game(ShowBase):
 
         self.taskMgr.add(self.update, "update")
 
+        # Eventos de interação com ObjectPlacer
+        self.accept("mouse1", self.confirm_placement)
+
     def update(self, task):
         if self.scene_manager.door_node:
-            # distância XY entre player e porta
             player_pos = self.player_controller.node.getPos(self.render)
             door_world = self.scene_manager.door_node.getPos(self.render)
-            # apenas XY
             dist = (player_pos.get_xz() - door_world.get_xz()).length()
 
             if dist < 2.5:
-                # guarda a direção de saída da sala antiga
                 prev_exit = self.scene_manager.exit_dir
-
-                # carrega a próxima sala (N+1 vira atual)
                 self.scene_manager.load_room()
-
-                # reposiciona o jogador na entrada da nova sala
                 offset = self.entry_offsets.get(prev_exit, LVector3f(0, 0, 0))
                 new_room_pos = self.scene_manager.current_room.getPos(self.render)
-                # sobe o player em Z para ficar acima do chão (+1m)
                 target = new_room_pos + offset + LVector3f(0, 0, 1.0)
 
                 print(f"[main.py - update] Carregando nova sala em: {new_room_pos}")
@@ -52,11 +57,30 @@ class Game(ShowBase):
 
                 self.player_controller.node.setPos(target)
 
-        # abrir porta com espaço
         if self.mouseWatcherNode.is_button_down('space'):
             self.scene_manager.abrir_porta()
 
         return task.cont
+
+    def _poll_asyncio(self, task):
+        self.loop.stop()        # encerra o passo anterior
+        self.loop.run_forever() # executa pendentes
+        return task.cont
+
+    def confirm_placement(self):
+        self.placer.confirm_placement()
+
+    def handle_prompt_submission(self, prompt: str):
+        print("🎯 [Game] handle_prompt_submission com prompt:", prompt)
+
+        async def async_flow():
+            print("⚙️ [Game] async_flow executando...")
+            obj_path = await self.prompt_manager.request_model(prompt)
+            print("📦 [Game] Modelo salvo em:", obj_path)
+            await self.placer.start_placement_from_file(obj_path)
+
+        # agende no loop que já está sendo pumpado
+        self.loop.create_task(async_flow())
 
 
 if __name__ == "__main__":

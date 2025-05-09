@@ -105,6 +105,6 @@ class PlayerController:
         # ── COLISÃO ─────────────────────────────────
         self.cTrav.traverse(self.app.render)
 
-        print(f"[controller.py - update] Posição do jogador: {self.node.getPos()}")
+        #print(f"[controller.py - update] Posição do jogador: {self.node.getPos()}")
 
         return task.cont

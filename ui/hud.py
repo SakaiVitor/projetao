@@ -18,6 +18,8 @@ class HUD:
         if self.entry:
             return
 
+        self.app.player_controller.moving = False
+
         # ── Animação de fade-in ────────────────────────
         def fade_in(alpha):
             self.bg_frame.setColor(0, 0, 0, alpha * 0.7)
@@ -115,6 +117,21 @@ class HUD:
                     element.destroy()
             self.entry = self.bg_frame = self.instruction = self.placeholder = self.prompt_frame = None
 
+            self.app.player_controller.moving = True
+
+        self.fade_out_interval = LerpFunc(
+            fade_out,
+            fromData=1.0,
+            toData=0.0,
+            duration=0.3,
+            blendType='easeInOut',
+            extraArgs=[],
+            name='fadeOutPrompt',
+        )
+        self.fade_out_interval.setDoneEvent('fadeOutDone')
+        self.app.acceptOnce('fadeOutDone', cleanup)
+        self.fade_out_interval.start()
+
         self.fade_out_interval = LerpFunc(
             fade_out,
             fromData=1.0,
@@ -129,8 +146,10 @@ class HUD:
         self.fade_out_interval.start()
 
     def submit_prompt(self, text):
+        print("📨 [HUD] submit_prompt chamado com:", text)
         self.status.setText(f"Prompt enviado: {text}")
         self.close_prompt()
-    
+        self.app.handle_prompt_submission(text)
+
     def is_prompt_visible(self):
        return self.entry is not None
