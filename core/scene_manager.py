@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from panda3d.core import (
     NodePath, LVector3f, CardMaker, CollisionNode, CollisionBox, BitMask32
 )
@@ -21,7 +23,6 @@ class SceneManager:
         self.exit_dir    = None                    # 'north' | 'south' | 'east' | 'west'
 
         self.npc_manager = NPCManager(app)
-        self.decorative_models = [f"assets/models/objects/{i:01}.obj" for i in range(1, 16)]
         self.textures = [f"assets/textures/floor{i:01}.jpg" for i in range(1, 7)]
         self.room_positions = [LVector3f(0, 0, 0)]
 
@@ -94,7 +95,7 @@ class SceneManager:
         floor.setHpr(0, -90, 0)
         floor.setZ(0)
         floor.setCollideMask(BitMask32.allOff())  # Garanta que o chão não tenha colisão!
-        self._apply_random_texture_or_color(floor)
+        self._apply_random_texture(floor)
 
     def _generate_ceiling(self, parent):
         cm = CardMaker("ceiling"); cm.setFrame(-self.WALL_LEN, self.WALL_LEN, -self.WALL_LEN, self.WALL_LEN)
@@ -143,7 +144,7 @@ class SceneManager:
             collider_box = CollisionBox((0, 0, self.WALL_ALT / 2), self.WALL_THK, self.WALL_LEN, self.WALL_ALT / 2)
 
         wall.setPos(*pos)
-        self._apply_random_texture_or_color(wall)
+        self._apply_random_texture(wall)
         wall.reparentTo(parent)
 
         col_np = wall.attachNewNode(CollisionNode(f"wall-col-{d}"))
@@ -184,32 +185,42 @@ class SceneManager:
             "east": (self.WALL_LEN - 3, 0, 0),
         }
 
+        # Busca dinâmica dos .obj
+        obj_dir = Path("assets/models/objects")
+        obj_paths = list(obj_dir.glob("*.obj"))
+        if not obj_paths:
+            print("[SceneManager] Nenhum arquivo .obj encontrado em assets/models/objects")
+            return
+
         placed_positions = []
 
         for d in decor_dirs:
             px, py, pz = pos_map[d]
             for _ in range(random.randint(1, 3)):
-                model_path = random.choice(self.decorative_models)
-                for _attempt in range(10):  # tenta achar posição não sobreposta
+                model_path = random.choice(obj_paths)
+                for _attempt in range(10):
                     dx, dy = random.uniform(-3, 3), random.uniform(-3, 3)
                     pos = LVector3f(px + dx, py + dy, pz + 0.3)
 
                     if all((pos - other).length() >= 1.5 for other in placed_positions):
-                        model = self.app.loader.loadModel(model_path)
+                        model = self.app.loader.loadModel(str(model_path))
                         model.setPos(pos)
                         model.setScale(random.uniform(1, 1.5))
-                        model.setH(random.uniform(0, 360))  # rotação horizontal
-                        model.setP(random.uniform(-10, 10))  # leve inclinação opcional
+                        model.setHpr(random.uniform(0, 360), 0, 0)  # apenas rotação em Z
+
+                        min_bound, _ = model.getTightBounds()
+                        if min_bound:
+                            model.setZ(model.getZ() - min_bound.getZ() - 0.05)
+
                         model.reparentTo(parent)
                         placed_positions.append(pos)
                         break
 
     # ───────── misc ─────────
-    def _apply_random_texture_or_color(self, node):
-        if random.random() < .5:
-            node.setColor(random.random(), random.random(), random.random(), 1)
-        else:
-            node.setTexture(self.app.loader.loadTexture(random.choice(self.textures)), 1)
+    def _apply_random_texture(self, node):
+        texture_path = random.choice(self.textures)
+        texture = self.app.loader.loadTexture(texture_path)
+        node.setTexture(texture, 1)
 
     def _quiz_passed(self):
         return True
