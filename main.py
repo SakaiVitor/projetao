@@ -1,5 +1,5 @@
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import LPoint3, LVector3f
+from panda3d.core import LPoint3, LVector3f, CollisionTraverser
 from core.engine import Engine
 from core.scene_manager import SceneManager
 from player.controller import PlayerController
@@ -27,6 +27,8 @@ class Game(ShowBase):
 
         self.prompt_manager = PromptManager()
         self.placer = ObjectPlacer(self)
+
+        self.cTrav = CollisionTraverser()
 
         L = SceneManager.WALL_LEN
         self.entry_offsets = {
@@ -88,7 +90,7 @@ class Game(ShowBase):
 
             print("✅ [Game] Modelo copiado para:", final_path)
             await self.placer.start_placement(path=final_path)
-            
+
         self.loop.create_task(async_flow())
 
 

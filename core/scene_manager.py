@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from panda3d.core import (
-    NodePath, LVector3f, CardMaker, CollisionNode, CollisionBox, BitMask32
+    NodePath, LVector3f, CardMaker, CollisionNode, CollisionBox, Point3, Vec3, CollisionPlane, BitMask32, Plane
 )
 import random
 from npc.npc_manager import NPCManager
@@ -89,13 +89,23 @@ class SceneManager:
         self._scatter_decor(parent)
 
     def _generate_floor(self, parent):
+        # Parte visual
         cm = CardMaker("floor")
         cm.setFrame(-self.WALL_LEN, self.WALL_LEN, -self.WALL_LEN, self.WALL_LEN)
-        floor = parent.attachNewNode(cm.generate())
-        floor.setHpr(0, -90, 0)
-        floor.setZ(0)
-        floor.setCollideMask(BitMask32.allOff())  # Garanta que o chão não tenha colisão!
-        self._apply_random_texture(floor)
+        floor_vis = parent.attachNewNode(cm.generate())
+        floor_vis.setHpr(0, -90, 0)
+        floor_vis.setZ(0)
+        self._apply_random_texture(floor_vis)
+
+        # Parte de colisão
+        plane = Plane(Vec3(0, 0, 1), Point3(0, 0, 0))  # plano horizontal em Z=0
+        cplane = CollisionPlane(plane)
+        cnode = CollisionNode("floor_collision")
+        cnode.addSolid(cplane)
+        cnode.setIntoCollideMask(BitMask32.bit(1))  # precisa bater com o ray
+
+        cnode_path = parent.attachNewNode(cnode)
+        cnode_path.setZ(0)  # certifique-se de alinhar com o visual
 
     def _generate_ceiling(self, parent):
         cm = CardMaker("ceiling"); cm.setFrame(-self.WALL_LEN, self.WALL_LEN, -self.WALL_LEN, self.WALL_LEN)
