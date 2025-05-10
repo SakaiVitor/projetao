@@ -2,12 +2,20 @@
 
 from panda3d.core import NodePath, LVector3f, Filename, TextNode
 from direct.showbase.Loader import Loader
+import random
 
 class NPCManager:
     def __init__(self, app):
         self.app = app
         self.npc_models = [
             "assets/models/npc1.obj"
+        ]
+        self.speech_lines = [
+            "Olá, viajante!",
+            "Já enfrentou os desafios daqui?",
+            "Use sua criatividade para seguir em frente.",
+            "Essa sala tem algo especial...",
+            "Você pode mudar tudo com palavras.",
         ]
 
     def spawn_npc(self, position: LVector3f) -> NodePath:
@@ -17,8 +25,9 @@ class NPCManager:
         npc.setPos(position)
         npc.reparentTo(self.app.render)
 
+        speech_text = random.choice(self.speech_lines)
         speech = TextNode('npc-speech')
-        speech.setText("Olá, jogador!")
+        speech.setText(speech_text)
         speech.setAlign(TextNode.ACenter)
         speech.setTextColor(1, 1, 1, 1)
         speech.setCardColor(0, 0, 0, 0.7)
