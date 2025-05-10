@@ -133,13 +133,22 @@ class SceneManager:
     # ───── helpers de construção ─────
     def _create_wall(self, parent, d, pos):
         wall = self.app.loader.loadModel("models/misc/rgbCube")
-        # orientação & dimensão
+
+        # Posição ajustada para encostar na borda da sala com espessura considerada
+        positions = {
+            "north": (0,  self.WALL_LEN + self.WALL_THK / 2, self.WALL_ALT / 2),
+            "south": (0, -self.WALL_LEN - self.WALL_THK / 2, self.WALL_ALT / 2),
+            "east":  (self.WALL_LEN + self.WALL_THK / 2, 0, self.WALL_ALT / 2),
+            "west":  (-self.WALL_LEN - self.WALL_THK / 2, 0, self.WALL_ALT / 2),
+        }
+        pos = positions[d]
+
+        # Escala e orientação
         if d in ("north", "south"):
+            wall.setScale(self.WALL_LEN, self.WALL_THK, self.WALL_ALT)
+            collider_box = CollisionBox((0, 0, self.WALL_ALT / 2), self.WALL_LEN, self.WALL_THK, self.WALL_ALT / 2)
+        else:  # leste / oeste
             wall.setScale(self.WALL_THK, self.WALL_LEN, self.WALL_ALT)
-            collider_box = CollisionBox((0, 0, self.WALL_ALT / 2), self.WALL_THK, self.WALL_LEN, self.WALL_ALT / 2)
-        else:  # east / west (deitado)
-            wall.setScale(self.WALL_THK, self.WALL_LEN, self.WALL_ALT)
-            wall.setH(90)
             collider_box = CollisionBox((0, 0, self.WALL_ALT / 2), self.WALL_THK, self.WALL_LEN, self.WALL_ALT / 2)
 
         wall.setPos(*pos)
@@ -150,14 +159,23 @@ class SceneManager:
         col_np.node().addSolid(collider_box)
         col_np.node().setIntoCollideMask(BitMask32.bit(1))
 
+
     def _create_door(self, parent, d, pos):
         door = self.app.loader.loadModel("models/misc/rgbCube")
-        # porta larga, fina
+
+        # Posição ajustada como nas paredes
+        positions = {
+            "north": (0,  self.WALL_LEN + self.DOOR_THK / 2, self.WALL_ALT / 2),
+            "south": (0, -self.WALL_LEN - self.DOOR_THK / 2, self.WALL_ALT / 2),
+            "east":  (self.WALL_LEN + self.DOOR_THK / 2, 0, self.WALL_ALT / 2),
+            "west":  (-self.WALL_LEN - self.DOOR_THK / 2, 0, self.WALL_ALT / 2),
+        }
+        pos = positions[d]
+
         if d in ("north", "south"):
-            door.setScale(self.DOOR_THK, self.DOOR_W, self.WALL_ALT)
+            door.setScale(self.WALL_LEN / 3, self.DOOR_THK, self.WALL_ALT)
         else:
-            door.setScale(self.DOOR_THK, self.DOOR_W, self.WALL_ALT)
-            door.setH(90)
+            door.setScale(self.DOOR_THK, self.WALL_LEN / 3, self.WALL_ALT)
 
         door.setPos(*pos)
         door.setColor(0.55, 0.27, 0.07, 1)
@@ -176,22 +194,17 @@ class SceneManager:
             npc.reparentTo(parent)
 
     def _scatter_decor(self, parent):
-        decor_dirs = [d for d in ("north", "south", "west", "east") if d not in (self.exit_dir,)]
-        pos_map = {
-            "north": (0,  self.WALL_LEN-3, 0),
-            "south": (0, -self.WALL_LEN+3, 0),
-            "west":  (-self.WALL_LEN+3, 0, 0),
-            "east":  ( self.WALL_LEN-3, 0, 0),
-        }
+        safe_margin = 2
+        num_objects = random.randint(3, 6)
 
-        for d in decor_dirs:
-            for _ in range(random.randint(1, 3)):
-                model = self.app.loader.loadModel(random.choice(self.decorative_models))
-                dx, dy = random.uniform(-1, 1), random.uniform(-1, 1)
-                px, py, pz = pos_map[d]
-                model.setPos(px + dx, py + dy, pz)
-                model.setScale(random.uniform(0.25, 0.5))  # menores
-                model.reparentTo(parent)
+        for _ in range(num_objects):
+            model = self.app.loader.loadModel(random.choice(self.decorative_models))
+            x = random.uniform(-self.WALL_LEN + safe_margin, self.WALL_LEN - safe_margin)
+            y = random.uniform(-self.WALL_LEN + safe_margin, self.WALL_LEN - safe_margin)
+            model.setPos(x, y, 0)
+            model.setScale(random.uniform(0.25, 0.5))
+            model.reparentTo(parent)
+
 
     # ───────── misc ─────────
     def _apply_random_texture_or_color(self, node):
