@@ -1,4 +1,4 @@
-from panda3d.core import Point3, Filename
+from panda3d.core import Point3, Filename, CardMaker, NodePath
 from direct.task import Task
 from direct.interval.IntervalGlobal import LerpHprInterval
 import asyncio
@@ -15,25 +15,39 @@ class ObjectPlacer:
         self.task = None
         self.preview_rotation = None
 
-    async def start_placement(self, prompt: str):
+    async def start_placement(self, path: str = None):
+        print("entrou aqui no start_placement")
         self.placing = True
 
-        # Carrega o placeholder .obj com textura embutida
-        self.preview_node = self.app.loader.loadModel("assets/models/placeholder.obj")
-        self.preview_node.setTransparency(True)
-        self.preview_node.setColorScale(1.5, 1.5, 1.5, 0.5)
-        self.preview_node.reparentTo(self.app.camera)
-        self.preview_node.setPos(0, 5, 0.5)
+        # Limpa preview anterior, se houver
+        if self.preview_node:
+            self.preview_node.removeNode()
+            self.preview_node = None
+        if self.preview_rotation:
+            self.preview_rotation.finish()
+            self.preview_rotation = None
 
-        # Roda o preview
-        self.preview_rotation = self.preview_node.hprInterval(2, (360, 0, 0))
-        self.preview_rotation.loop()
+        # Escolhe qual modelo carregar
+        if path is None:
+            path = "assets/models/placeholder.obj"
+
+        # Carrega o modelo
+        self._load_preview_model(path)
 
         # Cria task que atualiza a posição do preview
         self.task = self.app.taskMgr.add(self._update_preview, "UpdatePreviewTask")
 
-        # Aguarda modelo real sem usar create_task
-        await self._fetch_model(prompt)
+
+    def _load_preview_model(self, path: str):
+        self.preview_node = self.app.loader.loadModel(str(path))
+        self.preview_node.setTransparency(True)
+        self.preview_node.setColorScale(1.5, 1.5, 1.5, 0.5)
+        self.preview_node.reparentTo(self.app.camera)
+        self.preview_node.setPos(0, 5, 0.5 if "placeholder" in path else -1)
+
+        self.preview_rotation = self.preview_node.hprInterval(2, (360, 0, 0))
+        self.preview_rotation.loop()
+
 
     async def _fetch_model(self, prompt: str):
         job_id = await self._send_prompt(prompt)
@@ -93,19 +107,7 @@ class ObjectPlacer:
         hit = start + dir * scale
         return Point3(hit.getX(), hit.getY(), 0)
 
-    async def start_placement_from_file(self, obj_path):
-        self.placing = True
-
-        self.preview_node = self.app.loader.loadModel(str(obj_path))
-        self.preview_node.setTransparency(True)
-        self.preview_node.setColorScale(1.5, 1.5, 1.5, 0.5)
-        self.preview_node.reparentTo(self.app.camera)
-        self.preview_node.setPos(0, 5, -1)
-
-        self.preview_rotation = self.preview_node.hprInterval(2, (360, 0, 0))
-        self.preview_rotation.loop()
-
-        self.task = self.app.taskMgr.add(self._update_preview, "UpdatePreviewTask")
+    
 
     async def _send_prompt(self, prompt: str) -> str:
         async with aiohttp.ClientSession() as session:
@@ -122,4 +124,3 @@ class ObjectPlacer:
                     if data["status"] == "finished":
                         return f"{API_URL}{data['obj']}"
         raise TimeoutError("Tempo de espera excedido para o modelo.")
-

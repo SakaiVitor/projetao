@@ -76,6 +76,7 @@ class Game(ShowBase):
         print("🎯 [Game] handle_prompt_submission com prompt:", prompt)
 
         async def async_flow():
+            await self.placer.start_placement()
             print("⚙️ [Game] async_flow executando...")
             obj_temp_path = await self.prompt_manager.request_model(prompt)
             print("📦 [Game] Modelo salvo em (temp):", obj_temp_path)
@@ -86,8 +87,8 @@ class Game(ShowBase):
             shutil.copy(obj_temp_path, final_path)
 
             print("✅ [Game] Modelo copiado para:", final_path)
-            await self.placer.start_placement_from_file(final_path)
-
+            await self.placer.start_placement(path=final_path)
+            
         self.loop.create_task(async_flow())
 
 
