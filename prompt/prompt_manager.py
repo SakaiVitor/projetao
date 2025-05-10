@@ -14,8 +14,10 @@ class PromptManager:
     async def request_model(self, prompt: str) -> pathlib.Path:
         async with aiohttp.ClientSession() as s:
             # Envia o prompt
+            print(f"🛰️ Enviando prompt: {prompt}")
             resp = await s.post(f"{API_URL}/generate", json={"prompt": prompt})
             jid = (await resp.json())["job_id"]
+            print(f"🆔 Job ID recebido: {jid}")
 
             # Espera o modelo ser gerado
             while True:
@@ -30,6 +32,3 @@ class PromptManager:
             obj_path.write_bytes(await (await s.get(API_URL + result["obj"])).read())
 
             return obj_path
-
-    def generate_model(self, prompt: str) -> pathlib.Path:
-        return self.loop.run_until_complete(self.request_model(prompt))

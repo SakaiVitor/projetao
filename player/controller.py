@@ -53,13 +53,18 @@ class PlayerController:
         for key in self.keys:
             self.app.accept(key, self.set_key, [key, True])
             self.app.accept(f"{key}-up", self.set_key, [key, False])
-        self.app.accept("enter", self.toggle_input)
+        self.app.accept("tab", self.toggle_prompt)
 
     def set_key(self, key, value):
         self.keys[key] = value
 
-    def toggle_input(self):
-        self.moving = not self.moving
+    def toggle_prompt(self):
+        if self.app.hud.entry:
+            self.app.hud.close_prompt()
+            self.moving = True
+        else:
+            self.app.hud.show_prompt()
+            self.moving = False
 
     def lock_mouse(self):
         props = WindowProperties()
@@ -100,6 +105,6 @@ class PlayerController:
         # ── COLISÃO ─────────────────────────────────
         self.cTrav.traverse(self.app.render)
 
-        print(f"[controller.py - update] Posição do jogador: {self.node.getPos()}")
+        #print(f"[controller.py - update] Posição do jogador: {self.node.getPos()}")
 
         return task.cont
