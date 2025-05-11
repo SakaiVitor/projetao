@@ -93,6 +93,8 @@ class SceneManager:
         for room in self.rooms:
             room.reparentTo(self.app.render)
         self.current_room = self.rooms[0]
+        print("\n🧱 [DEBUG] Estrutura da cena após criar todas as salas:")
+        self.app.render.ls()
 
     def load_next_room(self) -> None:
         if self.room_index + 1 < len(self.rooms):
@@ -111,20 +113,6 @@ class SceneManager:
 
             if self._mapa_visivel and self._mapa_textos:
                 self.atualizar_sala_atual_no_mapa()
-
-    def abrir_porta(self) -> None:
-        """Remove completamente a porta da cena, incluindo colisores ocultos."""
-        if self.door_node and not self.door_node.isEmpty():
-            if self._quiz_passed():
-                print(f"[abrir_porta] Abrindo {self.door_node.getName()}")
-
-                print("[abrir_porta] Antes do removeNode():")
-                self.door_node.ls()  # Mostra estrutura da porta
-
-                # Remove do grafo de cena completamente
-                self.door_node.removeNode()
-
-                print("[abrir_porta] Porta removida com sucesso.")
 
     # ───────────────────── BUILD DE SALA ─────────────────────
     def _build_room_contents(
@@ -191,12 +179,10 @@ class SceneManager:
         self.door_node = None
 
         for d in dirs:
-            if d in door_dirs:                       # parede com porta
+            if d in door_dirs:  # parede com porta
                 self._create_wall_with_door(parent, d)
-                door = self._create_door_only(parent, d)
-                if d == self.exit_dir:
-                    self.door_node = door
-            else:                                    # parede sólida
+                self._create_door_only(parent, d)
+            else:  # parede sólida
                 self._create_wall(parent, d)
 
     def _create_wall_with_door(self, parent: NodePath, d: str) -> None:
@@ -236,22 +222,28 @@ class SceneManager:
             col_np.node().setIntoCollideMask(BitMask32.bit(1))
 
     def _create_door_only(self, parent: NodePath, d: str) -> NodePath:
-        """Modelinho da porta, só para visual (sem colisor)."""
-        door = self.app.loader.loadModel("models/misc/rgbCube")
+        door = self.app.loader.loadModel("assets/models/porta.obj")
+        door.setName("porta_sala")  # 🔖 nome rastreável para debug e remoção
+
         pos_map = {
-            "north": (0,  self.WALL_LEN + self.DOOR_THK/2, self.WALL_ALT/2),
-            "south": (0, -self.WALL_LEN - self.DOOR_THK/2, self.WALL_ALT/2),
-            "east":  ( self.WALL_LEN + self.DOOR_THK/2, 0, self.WALL_ALT/2),
-            "west":  (-self.WALL_LEN - self.DOOR_THK/2, 0, self.WALL_ALT/2),
+            "north": (0, self.WALL_LEN + self.DOOR_THK / 2, self.WALL_ALT / 2),
+            "south": (0, -self.WALL_LEN - self.DOOR_THK / 2, self.WALL_ALT / 2),
+            "east": (self.WALL_LEN + self.DOOR_THK / 2, 0, self.WALL_ALT / 2),
+            "west": (-self.WALL_LEN - self.DOOR_THK / 2, 0, self.WALL_ALT / 2),
         }
+
         if d in ("north", "south"):
             door.setScale(self.DOOR_W, self.DOOR_THK, self.WALL_ALT + .5)
         else:
             door.setScale(self.DOOR_THK, self.DOOR_W, self.WALL_ALT + .5)
 
         door.setPos(*pos_map[d])
-        door.setColor(0.4, 0.2, 0.1, 1)
         door.reparentTo(parent)
+
+        if d == self.exit_dir:
+            self.door_node = door  # referenciar no SceneManager
+            parent.setPythonTag("door_node", door)  # tag no NodePath da sala
+
         return door
 
     def _create_wall(self, parent: NodePath, d: str) -> None:
@@ -294,9 +286,10 @@ class SceneManager:
             npc = self.npc_manager.spawn_npc(
                 position=LVector3f(*offsets[self.exit_dir]),
                 facing_direction=self._opposite(self.exit_dir),
-                door_node=self.door_node  # <-- NOVO
+                door_node=self.door_node
             )
             npc.reparentTo(parent)
+
 
     # ──────────── DECORAÇÃO ────────────
     def _scatter_decor(self, parent: NodePath, entry_dir: str | None) -> None:

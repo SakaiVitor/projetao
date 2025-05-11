@@ -1,11 +1,10 @@
-# npc_manager.py
 from panda3d.core import NodePath, LVector3f, Filename, TextNode, BitMask32, TransparencyAttrib
 from pathlib import Path
 from direct.task import Task
 import random
 from math import sin
-from prompt.quiz_system import QuizSystem  # ajuste se necessário
-from sentence_transformers import util   # ← util.cos_sim, etc.
+from prompt.quiz_system import QuizSystem
+from sentence_transformers import util
 from direct.interval.LerpInterval import LerpColorScaleInterval
 from direct.interval.MetaInterval import Sequence
 from direct.interval.FunctionInterval import Func
@@ -18,9 +17,7 @@ class NPCManager:
         self.npc_models = list(self.npc_dir.glob("*.obj"))
         self.spawned_models = set()
         self.quiz_system = QuizSystem()
-
-        self.quiz_system = QuizSystem()   # já tem model, util, etc.
-        self.npcs: list[NodePath] = []    # ← guarda refs dos NPCs
+        self.npcs: list[NodePath] = []
 
         self.qa_triples = [
             {
@@ -90,19 +87,16 @@ class NPCManager:
 
         npc = self.app.loader.loadModel(Filename.from_os_specific(str(model_path)))
         npc.setScale(3)
-        # Aplica rotação baseada na direção esperada
+
         heading_map = {
-            "north": 0,  # +Y
-            "east": 90,  # +X
-            "south": 180,  # –Y
-            "west": 270,  # –X
+            "north": 0, "east": 90, "south": 180, "west": 270,
         }
         npc.setH(heading_map.get(facing_direction, 0))
         npc.setPos(position)
         npc.reparentTo(self.app.render)
 
-        min_bound, max_bound = npc.getTightBounds()
-        if min_bound and max_bound:
+        min_bound, _ = npc.getTightBounds()
+        if min_bound:
             npc.setZ(position.getZ() - min_bound.getZ() - 0.05)
 
         def breathing_task(task, node=npc):
@@ -112,13 +106,10 @@ class NPCManager:
 
         self.app.taskMgr.add(breathing_task, f"breathing-task-{id(npc)}")
 
-        # Seleciona e define enigma no sistema
         qa = random.choice(self.qa_triples)
         self.quiz_system.definir_enigma(qa["question"], qa["answers"])
+        npc.setPythonTag("threshold", qa["threshold"])
 
-        npc.setPythonTag("threshold", qa["threshold"])  # só o threshold precisa ser guardado
-
-        # Texto flutuante do enigma
         speech_node_text = TextNode("npc-text")
         speech_node_text.setText(qa["question"])
         speech_node_text.setAlign(TextNode.ACenter)
@@ -132,29 +123,21 @@ class NPCManager:
         speech_node_path.setDepthWrite(False)
         speech_node_path.setDepthTest(False)
         speech_node_path.reparentTo(self.app.render)
+        speech_node_path.hide()
 
-        speech_node_path.hide()  # ← começa invisível
-
-        # Atualiza posição e visibilidade com base na distância
         def update_speech(task, npc=npc, node=speech_node_path):
             if not npc or not node:
                 return Task.done
-
             node.setPos(npc.getX(), npc.getY(), npc.getZ() + 1)
-
             player_node = getattr(self.app.player_controller, "node", None)
             if player_node:
                 distance = (npc.getPos(self.app.render) - player_node.getPos(self.app.render)).length()
-                if distance < 10.0:
-                    node.show()
-                else:
-                    node.hide()
-
+                node.show() if distance < 10.0 else node.hide()
             return Task.cont
 
         self.app.taskMgr.add(update_speech, f"text-follow-{id(npc)}")
 
-        npc.setPythonTag("door_node", door_node)  # porta da sala
+        npc.setPythonTag("door_node", door_node)
         npc.setPythonTag("answers", qa["answers"])
         npc.setPythonTag("threshold", qa["threshold"])
 
@@ -162,12 +145,16 @@ class NPCManager:
         return npc
 
     def on_correct_response(self, door_node: NodePath):
-        print("✅ Resposta correta! Liberando progresso...")
+        print("✅ Resposta correta! Procurando portas para remoção...")
 
         if door_node.isEmpty():
             print("⚠️ Porta inválida (NodePath vazio).")
             return
 
+        door_name = door_node.getName()
+        print(f"🟨 Encontrada porta: {door_name}")
+
+        # Aplica transparência
         door_node.setTransparency(TransparencyAttrib.MAlpha)
         door_node.setColorScale(1, 1, 1, 1)
 
@@ -179,27 +166,33 @@ class NPCManager:
         )
 
         def finalizar():
-            print("🚪 Porta removida da cena.")
-            door_node.removeNode()  # <- remove tudo, inclusive colisor oculto
+            print(f"🚪 Fade-out concluído. Removendo {door_name}")
+            door_node.detachNode()  # remove da árvore, mas mantém referência
+            door_node.removeNode()  # apaga de verdade
+
+            # Checagem de segurança: tenta encontrar outra porta com mesmo nome
+            still_exists = self.app.render.find("**/porta_sala")
+            if not still_exists.isEmpty():
+                print(f"❌ Ainda existe: {still_exists}, forçando remoção final...")
+                still_exists.removeNode()
+            else:
+                print("🚪 Porta removida com sucesso.")
 
         Sequence(fade, Func(finalizar)).start()
+        self.app.render.ls()  # debug opcional
 
     def try_answer(self, resposta: str, npc: NodePath):
-        """Chama diretamente a avaliação usando threshold armazenado"""
         if self.quiz_system.avaliar_resposta(resposta, npc.getPythonTag("threshold")):
-            self.on_correct_response()
+            door = npc.getPythonTag("door_node")
+            if door and not door.isEmpty():
+                self.on_correct_response(door)
             return True
         print("❌ Resposta incorreta ou abaixo do limiar.")
         return False
 
     def try_prompt_nearby(self, prompt: str, obj_pos, radius: float = 2.0) -> bool:
-        """
-        Tenta validar o prompt para qualquer NPC num raio ≤ radius em XY.
-        Se atingir threshold, esconde a porta associada ao NPC.
-        """
-        model = self.quiz_system.model  # reaproveita o mesmo modelo
+        model = self.quiz_system.model
         for npc in self.npcs:
-            # verifica distância XY
             if (npc.getPos(self.app.render).getXy() - obj_pos.getXy()).length() > radius:
                 continue
 
@@ -213,7 +206,7 @@ class NPCManager:
             if score >= threshold:
                 door = npc.getPythonTag("door_node")
                 if door and not door.isEmpty():
-                    self.on_correct_response(door)  # <- chama função que remove tudo corretamente
+                    self.on_correct_response(door)
                     print(f"✅ Porta da sala aberta! (score {score:.2f})")
                 return True
         return False

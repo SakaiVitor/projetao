@@ -46,9 +46,6 @@ class Game(ShowBase):
         player_pos = self.player_controller.node.getPos(self.render)
         self.scene_manager.atualizar_sala_baseada_na_posicao(player_pos)
 
-        if self.mouseWatcherNode.is_button_down('space'):
-            self.scene_manager.abrir_porta()
-
         return task.cont
 
     def _poll_asyncio(self, task):
