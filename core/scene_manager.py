@@ -181,23 +181,25 @@ class SceneManager:
         dirs = ["north", "south", "east", "west"]
 
         if is_first and force_exit_dir:
-            door_dirs = [force_exit_dir]             # 1ª sala → só saída Norte
+            door_dirs = {force_exit_dir}
         else:
             remaining = [d for d in dirs if d != entry_dir]
-            door_dirs = [entry_dir, random.choice(remaining)]
+            chosen_exit = random.choice(remaining)
+            door_dirs = {entry_dir, chosen_exit}
 
-        # self.exit_dir = última posição da lista (saída)
-        self.exit_dir = door_dirs[-1]
+        # Última direção é a saída
+        self.exit_dir = list(door_dirs)[-1]
         self.door_node = None
 
         for d in dirs:
-            if d in door_dirs:                       # parede com porta
+            if d in door_dirs:
                 self._create_wall_with_door(parent, d)
                 door = self._create_door_only(parent, d)
                 if d == self.exit_dir:
                     self.door_node = door
-            else:                                    # parede sólida
+            else:
                 self._create_wall(parent, d)
+
 
     def _create_wall_with_door(self, parent: NodePath, d: str) -> None:
         """Parede dividida em 2 blocos com abertura no centro."""
@@ -212,28 +214,34 @@ class SceneManager:
                 piece.setScale(frame_half, self.WALL_THK, self.WALL_ALT + .5)
                 x = side * (self.WALL_LEN - frame_half / 2)
                 pos = (x,
-                       self.WALL_LEN + self.WALL_THK / 2
-                       if d == "north" else
-                       -self.WALL_LEN - self.WALL_THK / 2,
-                       wall_z)
+                    self.WALL_LEN + self.WALL_THK / 2 if d == "north"
+                    else -self.WALL_LEN - self.WALL_THK / 2,
+                    wall_z)
             else:
                 piece.setScale(self.WALL_THK, frame_half, self.WALL_ALT + .5)
                 y = side * (self.WALL_LEN - frame_half / 2)
-                pos = ( self.WALL_LEN + self.WALL_THK / 2
-                        if d == "east" else
-                       -self.WALL_LEN - self.WALL_THK / 2,
-                       y, wall_z)
+                pos = (
+                    self.WALL_LEN + self.WALL_THK / 2 if d == "east"
+                    else -self.WALL_LEN - self.WALL_THK / 2,
+                    y, wall_z)
 
             piece.setPos(*pos)
             self._apply_room_texture(parent, piece)
             piece.reparentTo(parent)
 
-            # colisor
-            sx, sy, sz = piece.getScale()
-            box = CollisionBox((0, 0, self.WALL_ALT/2), sx, sy, self.WALL_ALT/2)
-            col_np = piece.attachNewNode(CollisionNode(f"wall-col-{d}-{side}"))
-            col_np.node().addSolid(box)
-            col_np.node().setIntoCollideMask(BitMask32.bit(1))
+            # ── Collider corretamente centralizado ──
+            scale = piece.getScale()
+            half_x, half_y, half_z = scale.x / 8, scale.y / 8, scale.z
+            box = CollisionBox((0, 0, 0), 0.5, 0.5, half_z)
+
+            node = CollisionNode(f"wall-col-{d}-{side}")
+            node.addSolid(box)
+            node.setFromCollideMask(BitMask32.bit(1))
+            piece.attachNewNode(node)
+
+            # col_np = piece.attachNewNode(CollisionNode(f"wall-col-{d}-{side}"))
+            # col_np.node.addSolid(box)
+            # col_np.node.setIntoCollideMask(BitMask32.bit(1))
 
     def _create_door_only(self, parent: NodePath, d: str) -> NodePath:
         """Modelinho da porta, só para visual (sem colisor)."""
@@ -268,19 +276,24 @@ class SceneManager:
 
         if d in ("north", "south"):
             wall.setScale(self.CELL, self.WALL_THK, self.WALL_ALT)
-            box = CollisionBox((0, 0, self.WALL_ALT/2),
-                               self.CELL, self.WALL_THK, self.WALL_ALT/2)
+            box = CollisionBox((0, 0, 0),
+                               0.5, self.WALL_THK/2, self.WALL_ALT/2)
         else:
             wall.setScale(self.WALL_THK, self.CELL, self.WALL_ALT)
-            box = CollisionBox((0, 0, self.WALL_ALT/2),
-                               self.WALL_THK, self.CELL, self.WALL_ALT/2)
+            box = CollisionBox((0, 0, 0),
+                               self.WALL_THK/2, 0.5, self.WALL_ALT/2)
 
         self._apply_room_texture(parent, wall)
         wall.reparentTo(parent)
 
-        col_np = wall.attachNewNode(CollisionNode(f"wall-col-{d}"))
-        col_np.node().addSolid(box)
-        col_np.node().setIntoCollideMask(BitMask32.bit(1))
+        wall_cnode = CollisionNode(f"wall-col-{d}")
+        wall_cnode.addSolid(box)
+        wall_cnode.setIntoCollideMask(BitMask32.bit(1))
+        wall.attachNewNode(wall_cnode)
+
+        # col_np = wall.attachNewNode(CollisionNode(f"wall-col-{d}"))
+        # col_np.node().addSolid(box)
+        # col_np.node().setIntoCollideMask(BitMask32.bit(1))
 
     # ───────────── SPAWN DE NPC ─────────────
     def _spawn_npc(self, parent: NodePath, entry_dir: str | None) -> None:

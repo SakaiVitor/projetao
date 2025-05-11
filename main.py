@@ -1,6 +1,6 @@
 # main.py
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import LVector3f, CollisionTraverser, loadPrcFileData
+from panda3d.core import LVector3f, CollisionTraverser, loadPrcFileData, CollisionHandlerPusher
 from core.engine import Engine
 from core.scene_manager import SceneManager
 from player.controller import PlayerController
@@ -17,8 +17,11 @@ class Game(ShowBase):
     def __init__(self):
         ShowBase.__init__(self)
 
+        # ───── Colisão ─────
+        self.cTrav = CollisionTraverser()
+        self.pusher = CollisionHandlerPusher()
+
         # sistemas centrais
-        self.cTrav   = CollisionTraverser()
         self.engine  = Engine(self)            # usado por outras partes do jogo
         self.scene_manager = SceneManager(self)
         self.player_controller = PlayerController(self)
@@ -40,6 +43,9 @@ class Game(ShowBase):
         self.accept("mouse1", self.placer.confirm_preview_under_cursor)
         self.accept("m", self.scene_manager.toggle_mapa_resumo)
         self.accept("M", self.scene_manager.toggle_mapa_resumo)
+
+        self.cTrav.showCollisions(self.render)
+
 
     # ───────────── game-loop ─────────────
     def update(self, task):

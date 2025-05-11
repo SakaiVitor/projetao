@@ -1,6 +1,6 @@
 from direct.showbase.ShowBaseGlobal import globalClock
 from panda3d.core import Vec3, WindowProperties
-from panda3d.core import CollisionTraverser, CollisionHandlerPusher, CollisionNode, CollisionSphere, BitMask32
+from panda3d.core import CollisionTraverser, CollisionHandlerPusher, CollisionNode, CollisionSphere, BitMask32, CollisionCapsule
 
 class PlayerController:
     def __init__(self, app):
@@ -38,13 +38,12 @@ class PlayerController:
         self.pusher = CollisionHandlerPusher()
 
         cnode = CollisionNode("playerCollider")
-        cnode.addSolid(CollisionSphere(0, 0, 0, 1))  # esfera no centro do dummy
+        cnode.addSolid(CollisionCapsule(0, 0, 0, 0, 0, 1.8, 0.5))  # esfera no centro do dummy
         cnode.setFromCollideMask(BitMask32.bit(1))
         cnode.setIntoCollideMask(BitMask32.allOff())
 
         self.collider_node = self.node.attachNewNode(cnode)
         self.pusher.addCollider(self.collider_node, self.node)
-        
         self.cTrav.addCollider(self.collider_node, self.pusher)
 
         # ── Travar mouse no centro ─────────────────────────────
@@ -107,6 +106,7 @@ class PlayerController:
             # self.node.setPos(self.node.getPos() + world_dir * self.speed * dt)
             self.node.setFluidPos(self.node.getPos() + world_dir * self.speed * dt)
 
+        self.node.setZ(2)
 
         # ── COLISÃO ─────────────────────────────────
         self.cTrav.traverse(self.app.render)
