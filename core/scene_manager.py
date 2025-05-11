@@ -352,6 +352,8 @@ class SceneManager:
         texture_path = room.getTag("wall_texture")
         texture = self.app.loader.loadTexture(texture_path)
 
+        node.setColor(1, 1, 1, 1)
+
         ts = TextureStage.getDefault()
         node.setTexture(ts, texture)
         node.setTexGen(ts, TexGenAttrib.MWorldPosition)
