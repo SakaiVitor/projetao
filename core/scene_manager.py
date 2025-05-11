@@ -1,7 +1,7 @@
 # scene_manager.py
 from pathlib import Path
 import random
-from math import sin
+from math import sin, degrees, atan2
 from glob import glob
 
 from panda3d.core import (
@@ -179,18 +179,37 @@ class SceneManager:
                 if d == self.exit_dir:
                     self._create_wall_with_door(parent, d)
                     exit_door_node = self._create_door_only(parent, d)
-
-            # Depois, cria as outras paredes sólidas
-            for d in dirs:
-                if d != self.exit_dir:
+                else:
                     self._create_wall(parent, d)
 
             self._spawn_npc(parent, entry_dir=None, door_node=exit_door_node)
 
         else:
-            remaining = [d for d in dirs if d != entry_dir]
-            door_dirs = [entry_dir, random.choice(remaining)]
-            self.exit_dir = door_dirs[-1]
+            # Exclui entrada e direções que já possuem salas
+            remaining = [
+                d for d in dirs
+                if d != entry_dir and
+                   self._vec_to_tuple(parent.getPos() + self._direction_to_offset(d)) not in self.room_grid_set
+            ]
+
+            if not remaining:
+                print(f"⚠️ [SceneManager] Sem saída válida na sala {self.room_index}")
+                self.exit_dir = None
+                exit_door_node = None
+
+                # Cria somente a entrada
+                for d in dirs:
+                    if d == entry_dir:
+                        self._create_wall_with_door(parent, d)
+                    else:
+                        self._create_wall(parent, d)
+
+                self._spawn_npc(parent, entry_dir=entry_dir, door_node=None)
+                return
+
+            door_dirs = [entry_dir] if entry_dir else []
+            self.exit_dir = random.choice(remaining)
+            door_dirs.append(self.exit_dir)
             exit_door_node = None
 
             for d in dirs:
@@ -257,7 +276,14 @@ class SceneManager:
         else:
             door.setScale(self.DOOR_THK, DOOR_VISIBLE_WIDTH, self.WALL_ALT + .5)
 
-        door.setPos(*pos_map[d])
+        # ⚠️ Correção de alinhamento apenas para leste/oeste
+        offset_fix = {
+            "east": LVector3f(0, 0.3, 0),
+            "west": LVector3f(0, -0.3, 0),
+        }.get(d, LVector3f(0, 0, 0))
+
+        final_pos = LVector3f(*pos_map[d]) + offset_fix
+        door.setPos(final_pos)
         door.reparentTo(parent)
 
         if d == self.exit_dir:
@@ -296,20 +322,31 @@ class SceneManager:
 
     # ───────────── SPAWN DE NPC ─────────────
     def _spawn_npc(self, parent: NodePath, entry_dir: str | None, door_node: NodePath | None) -> None:
-        offsets = {
-            "north": (2, self.WALL_LEN - 1, 0),
-            "south": (2, -self.WALL_LEN + 1, 0),
-            "west": (-self.WALL_LEN + 1, -2, 0),
-            "east": (self.WALL_LEN - 1, -2, 0),
-        }
+        if not self.exit_dir or door_node is None:
+            return
 
-        if self.exit_dir in offsets:
-            npc = self.npc_manager.spawn_npc(
-                position=LVector3f(*offsets[self.exit_dir]),
-                facing_direction=self._opposite(self.exit_dir),
-                door_node=door_node  # ✅ usa a referência certa
-            )
-            npc.reparentTo(parent)
+        porta_pos = door_node.getPos(parent)
+        dir_vec = (porta_pos - LVector3f(0, 0, 0)).normalized()
+        perp_vec = LVector3f(-dir_vec.getY(), dir_vec.getX(), 0)
+
+        npc_pos = porta_pos - dir_vec * 3.0 + perp_vec * 1.5
+
+        npc = self.npc_manager.spawn_npc(door_node=door_node)
+        npc.setScale(4)
+        npc.setPos(npc_pos)
+        npc.reparentTo(parent)
+
+        # Força um frame de render para atualizar os bounds corretamente
+        self.app.graphicsEngine.renderFrame()
+
+        # Rotação para olhar para a porta
+        heading_deg = degrees(atan2(-dir_vec.getY(), -dir_vec.getX()))
+        npc.setH(heading_deg)
+
+        # Ajuste vertical da base do modelo ao chão
+        min_bound, _ = npc.getTightBounds()
+        if min_bound:
+            npc.setZ(npc.getZ() - min_bound.getZ() - 1)
 
     # ──────────── DECORAÇÃO ────────────
     def _scatter_decor(self, parent: NodePath, entry_dir: str | None) -> None:

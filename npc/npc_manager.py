@@ -72,7 +72,7 @@ class NPCManager:
             },
         ]
 
-    def spawn_npc(self, *, position, facing_direction="south", door_node=None) -> NodePath:
+    def spawn_npc(self, *, door_node=None) -> NodePath:
         if not self.npc_models:
             print("Nenhum modelo .obj encontrado em assets/models/npcs")
             return None
@@ -86,19 +86,9 @@ class NPCManager:
         self.spawned_models.add(model_path)
 
         npc = self.app.loader.loadModel(Filename.from_os_specific(str(model_path)))
-        npc.setScale(3)
-
-        heading_map = {
-            "north": 0, "east": 90, "south": 180, "west": 270,
-        }
-        npc.setH(heading_map.get(facing_direction, 0))
-        npc.setPos(position)
         npc.reparentTo(self.app.render)
 
-        min_bound, _ = npc.getTightBounds()
-        if min_bound:
-            npc.setZ(position.getZ() - min_bound.getZ() - 0.05)
-
+        # Respiração
         def breathing_task(task, node=npc):
             scale = 2 + 0.02 * sin(task.time * 2)
             node.setScale(scale)
@@ -106,6 +96,7 @@ class NPCManager:
 
         self.app.taskMgr.add(breathing_task, f"breathing-task-{id(npc)}")
 
+        # Fala e pergunta
         qa = random.choice(self.qa_triples)
         self.quiz_system.definir_enigma(qa["question"], qa["answers"])
         npc.setPythonTag("threshold", qa["threshold"])
@@ -123,8 +114,8 @@ class NPCManager:
         speech_node_path.setDepthWrite(False)
         speech_node_path.setDepthTest(False)
 
-        speech_node_path.reparentTo(npc)  #reparenta diretamente ao NPC
-        speech_node_path.setPos(0, 0, 1)  #posição relativa ao topo do NPC
+        speech_node_path.reparentTo(npc)
+        speech_node_path.setPos(0, 0, 1)
         speech_node_path.hide()
 
         def update_speech(task, node=speech_node_path):
