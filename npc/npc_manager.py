@@ -72,7 +72,7 @@ class NPCManager:
             },
         ]
 
-    def spawn_npc(self, *, door_node=None) -> NodePath:
+    def spawn_npc(self, *, door_node=None, npc_scale=3.0) -> NodePath:
         if not self.npc_models:
             print("Nenhum modelo .obj encontrado em assets/models/npcs")
             return None
@@ -85,18 +85,21 @@ class NPCManager:
         model_path = random.choice(available_models)
         self.spawned_models.add(model_path)
 
-        npc = self.app.loader.loadModel(Filename.from_os_specific(str(model_path)))
+        npc = NodePath("npc")
         npc.reparentTo(self.app.render)
 
-        # Respiração
-        def breathing_task(task, node=npc):
-            scale = 2 + 0.02 * sin(task.time * 2)
+        model_node = self.app.loader.loadModel(Filename.from_os_specific(str(model_path)))
+        model_node.setName("model_node")
+        model_node.reparentTo(npc)
+
+        def breathing_task(task, node=model_node):
+            amplitude = 0.03 * npc_scale
+            scale = npc_scale + amplitude * sin(task.time * 2)
             node.setScale(scale)
             return Task.cont
 
         self.app.taskMgr.add(breathing_task, f"breathing-task-{id(npc)}")
 
-        # Fala e pergunta
         qa = random.choice(self.qa_triples)
         self.quiz_system.definir_enigma(qa["question"], qa["answers"])
         npc.setPythonTag("threshold", qa["threshold"])
@@ -107,22 +110,22 @@ class NPCManager:
         speech_node_text.setTextColor(1, 1, 1, 1)
         speech_node_text.setCardColor(0, 0, 0, 1)
         speech_node_text.setCardAsMargin(0.3, 0.3, 0.2, 0.2)
+
         speech_node_path = NodePath(speech_node_text.generate())
         speech_node_path.setScale(0.2)
         speech_node_path.setBillboardAxis()
         speech_node_path.setLightOff()
         speech_node_path.setDepthWrite(False)
         speech_node_path.setDepthTest(False)
-
         speech_node_path.reparentTo(npc)
-        speech_node_path.setPos(0, 0, 1)
+        speech_node_path.setName("speech_node")  # identificável no .find()
         speech_node_path.hide()
 
         def update_speech(task, node=speech_node_path):
             player_node = getattr(self.app.player_controller, "node", None)
             if player_node:
                 distance = (npc.getPos(self.app.render) - player_node.getPos(self.app.render)).length()
-                node.show() if distance < 10.0 else node.hide()
+                node.show() if distance < 15.0 else node.hide()
             return Task.cont
 
         self.app.taskMgr.add(update_speech, f"text-follow-{id(npc)}")

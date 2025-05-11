@@ -331,22 +331,30 @@ class SceneManager:
 
         npc_pos = porta_pos - dir_vec * 3.0 + perp_vec * 1.5
 
-        npc = self.npc_manager.spawn_npc(door_node=door_node)
-        npc.setScale(4)
-        npc.setPos(npc_pos)
+        npc_scale = 3.0
+        npc = self.npc_manager.spawn_npc(door_node=door_node, npc_scale=npc_scale)
         npc.reparentTo(parent)
+        npc.setPos(npc_pos)
 
-        # Força um frame de render para atualizar os bounds corretamente
         self.app.graphicsEngine.renderFrame()
 
-        # Rotação para olhar para a porta
+        model_node = npc.find("**/model_node")
+        if not model_node.isEmpty():
+            min_bound, max_bound = model_node.getTightBounds()
+            scale_z = model_node.getScale().getZ()
+
+            if min_bound and max_bound:
+                altura_modelo = (max_bound.getZ() - min_bound.getZ()) * scale_z
+                centro_z_local = (min_bound.getZ() + max_bound.getZ()) / 2 * scale_z
+                # move o modelo para que a base fique no chão
+                npc.setZ(npc.getZ() - centro_z_local - altura_modelo / 2)
+
+            speech_node = npc.find("**/speech_node")
+            if not speech_node.isEmpty():
+                speech_node.setZ(altura_modelo + 1)
+
         heading_deg = degrees(atan2(-dir_vec.getY(), -dir_vec.getX()))
         npc.setH(heading_deg)
-
-        # Ajuste vertical da base do modelo ao chão
-        min_bound, _ = npc.getTightBounds()
-        if min_bound:
-            npc.setZ(npc.getZ() - min_bound.getZ() - 1)
 
     # ──────────── DECORAÇÃO ────────────
     def _scatter_decor(self, parent: NodePath, entry_dir: str | None) -> None:
