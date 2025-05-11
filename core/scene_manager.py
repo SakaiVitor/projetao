@@ -2,6 +2,7 @@
 from pathlib import Path
 import random
 from math import sin
+from glob import glob
 
 from panda3d.core import (
     NodePath, LVector3f, CardMaker, CollisionNode, CollisionBox, Point3, Vec3,
@@ -40,8 +41,9 @@ class SceneManager:
         self._mapa_textos  : list[OnscreenText] = []
 
         self.npc_manager   = NPCManager(app)
-        self.textures      = [f"assets/textures/floor{i}.jpg" for i in range(1, 7)]
-        self.wall_textures = [f"assets/textures/walls/wall{i}.png" for i in range(1, 4)]
+        self.floor_textures = glob("assets/textures/floor/*.jpg") + glob("assets/textures/floor/*.png")
+        self.wall_textures = glob("assets/textures/walls/*.jpg") + glob("assets/textures/walls/*.png")
+        self.ceiling_textures = glob("assets/textures/ceiling/*.jpg") + glob("assets/textures/ceiling/*.png")
 
     # ───────────────────────── PUBLIC ─────────────────────────
     def load_first_room(self) -> None:
@@ -94,7 +96,6 @@ class SceneManager:
             room.reparentTo(self.app.render)
         self.current_room = self.rooms[0]
         print("\n🧱 [DEBUG] Estrutura da cena após criar todas as salas:")
-        self.app.render.ls()
 
     def load_next_room(self) -> None:
         if self.room_index + 1 < len(self.rooms):
@@ -116,14 +117,21 @@ class SceneManager:
 
     # ───────────────────── BUILD DE SALA ─────────────────────
     def _build_room_contents(
-        self,
-        parent: NodePath,
-        entry_dir: str | None,
-        force_exit_dir: str | None = None,
-        is_first: bool = False
+            self,
+            parent: NodePath,
+            entry_dir: str | None,
+            force_exit_dir: str | None = None,
+            is_first: bool = False
     ) -> None:
         """Gera todo o conteúdo de uma sala."""
-        parent.setTag("wall_texture", random.choice(self.wall_textures))
+
+        wall_tex = random.choice(self.wall_textures)
+        floor_tex = random.choice(self.floor_textures)
+        ceiling_tex = random.choice(self.ceiling_textures)
+
+        parent.setTag("wall_texture", wall_tex)
+        parent.setTag("floor_texture", floor_tex)
+        parent.setTag("ceiling_texture", ceiling_tex)
 
         self._generate_floor(parent)
         self._generate_ceiling(parent)
@@ -134,29 +142,29 @@ class SceneManager:
     # ──────────── ESTRUTURAS: CHÃO / TETO ─────────────
     def _generate_floor(self, parent: NodePath) -> None:
         cm = CardMaker("floor")
-        cm.setFrame(-self.WALL_LEN, self.WALL_LEN,
-                    -self.WALL_LEN, self.WALL_LEN)
+        cm.setFrame(-self.WALL_LEN, self.WALL_LEN, -self.WALL_LEN, self.WALL_LEN)
         floor_vis = parent.attachNewNode(cm.generate())
         floor_vis.setHpr(0, -90, 0)
         floor_vis.setZ(0)
-        self._apply_random_texture(floor_vis)
 
-        # colisão = plano infinito em Z=0
-        plane   = Plane(Vec3(0, 0, 1), Point3(0, 0, 0))
-        cplane  = CollisionPlane(plane)
-        cnode   = CollisionNode("floor_collision")
-        cnode.addSolid(cplane)
+        tex_path = parent.getTag("floor_texture")
+        self._apply_texture(floor_vis, tex_path)
+
+        plane = Plane(Vec3(0, 0, 1), Point3(0, 0, 0))
+        cnode = CollisionNode("floor_collision")
+        cnode.addSolid(CollisionPlane(plane))
         cnode.setIntoCollideMask(BitMask32.bit(1))
         parent.attachNewNode(cnode).setZ(0)
 
     def _generate_ceiling(self, parent: NodePath) -> None:
         cm = CardMaker("ceiling")
-        cm.setFrame(-self.WALL_LEN, self.WALL_LEN,
-                    -self.WALL_LEN, self.WALL_LEN)
+        cm.setFrame(-self.WALL_LEN, self.WALL_LEN, -self.WALL_LEN, self.WALL_LEN)
         ceiling = parent.attachNewNode(cm.generate())
         ceiling.setPos(0, 0, self.WALL_ALT)
         ceiling.setHpr(0, 90, 0)
-        ceiling.setColor(0.8, 0.8, 0.8, 1)
+
+        tex_path = parent.getTag("ceiling_texture")
+        self._apply_texture(ceiling, tex_path)
 
     # ────────── PAREDES / PORTAS ──────────
     def _generate_walls_and_doors(
@@ -232,17 +240,19 @@ class SceneManager:
             "west": (-self.WALL_LEN - self.DOOR_THK / 2, 0, self.WALL_ALT / 2),
         }
 
+        DOOR_VISIBLE_WIDTH = 5
+
         if d in ("north", "south"):
-            door.setScale(self.DOOR_W, self.DOOR_THK, self.WALL_ALT + .5)
+            door.setScale(DOOR_VISIBLE_WIDTH, self.DOOR_THK, self.WALL_ALT + .5)
         else:
-            door.setScale(self.DOOR_THK, self.DOOR_W, self.WALL_ALT + .5)
+            door.setScale(self.DOOR_THK, DOOR_VISIBLE_WIDTH, self.WALL_ALT + .5)
 
         door.setPos(*pos_map[d])
         door.reparentTo(parent)
 
         if d == self.exit_dir:
-            self.door_node = door  # referenciar no SceneManager
-            parent.setPythonTag("door_node", door)  # tag no NodePath da sala
+            self.door_node = door
+            parent.setPythonTag("door_node", door)
 
         return door
 
@@ -342,11 +352,13 @@ class SceneManager:
 
     # ────────────── TEXTURAS ──────────────
     def _apply_room_texture(self, room: NodePath, node: NodePath) -> None:
-        texture_path = room.getTag("wall_texture")
+        tex_path = room.getTag("wall_texture")
+        self._apply_texture(node, tex_path)
+
+    def _apply_texture(self, node: NodePath, texture_path: str) -> None:
         texture = self.app.loader.loadTexture(texture_path)
 
         node.setColor(1, 1, 1, 1)
-
         ts = TextureStage.getDefault()
         node.setTexture(ts, texture)
         node.setTexGen(ts, TexGenAttrib.MWorldPosition)
@@ -360,10 +372,6 @@ class SceneManager:
     def _apply_random_texture(self, node: NodePath) -> None:
         texture = self.app.loader.loadTexture(random.choice(self.textures))
         node.setTexture(texture, 1)
-
-    # ────────────── QUIZ / PORTA ──────────────
-    def _quiz_passed(self) -> bool:
-        return True   # trocar pela lógica real de quiz
 
     # ────────────── MAPA RESUMO ──────────────
     def gerar_mapa_resumo(self) -> None:
