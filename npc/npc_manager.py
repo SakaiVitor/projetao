@@ -1,9 +1,15 @@
-from panda3d.core import NodePath, LVector3f, Filename, TextNode
+# npc_manager.py
+from panda3d.core import NodePath, LVector3f, Filename, TextNode, BitMask32, TransparencyAttrib
 from pathlib import Path
 from direct.task import Task
 import random
 from math import sin
 from prompt.quiz_system import QuizSystem  # ajuste se necessário
+from sentence_transformers import util   # ← util.cos_sim, etc.
+from direct.interval.LerpInterval import LerpColorScaleInterval
+from direct.interval.MetaInterval import Sequence
+from direct.interval.FunctionInterval import Func
+
 
 class NPCManager:
     def __init__(self, app):
@@ -12,6 +18,9 @@ class NPCManager:
         self.npc_models = list(self.npc_dir.glob("*.obj"))
         self.spawned_models = set()
         self.quiz_system = QuizSystem()
+
+        self.quiz_system = QuizSystem()   # já tem model, util, etc.
+        self.npcs: list[NodePath] = []    # ← guarda refs dos NPCs
 
         self.qa_triples = [
             {
@@ -66,7 +75,7 @@ class NPCManager:
             },
         ]
 
-    def spawn_npc(self, position: LVector3f) -> NodePath:
+    def spawn_npc(self, *, position, facing_direction="south", door_node=None) -> NodePath:
         if not self.npc_models:
             print("Nenhum modelo .obj encontrado em assets/models/npcs")
             return None
@@ -80,7 +89,15 @@ class NPCManager:
         self.spawned_models.add(model_path)
 
         npc = self.app.loader.loadModel(Filename.from_os_specific(str(model_path)))
-        npc.setScale(2)
+        npc.setScale(3)
+        # Aplica rotação baseada na direção esperada
+        heading_map = {
+            "north": 0,  # +Y
+            "east": 90,  # +X
+            "south": 180,  # –Y
+            "west": 270,  # –X
+        }
+        npc.setH(heading_map.get(facing_direction, 0))
         npc.setPos(position)
         npc.reparentTo(self.app.render)
 
@@ -137,10 +154,35 @@ class NPCManager:
 
         self.app.taskMgr.add(update_speech, f"text-follow-{id(npc)}")
 
+        npc.setPythonTag("door_node", door_node)  # porta da sala
+        npc.setPythonTag("answers", qa["answers"])
+        npc.setPythonTag("threshold", qa["threshold"])
+
+        self.npcs.append(npc)
         return npc
 
-    def on_correct_response(self):
+    def on_correct_response(self, door_node: NodePath):
         print("✅ Resposta correta! Liberando progresso...")
+
+        if door_node.isEmpty():
+            print("⚠️ Porta inválida (NodePath vazio).")
+            return
+
+        door_node.setTransparency(TransparencyAttrib.MAlpha)
+        door_node.setColorScale(1, 1, 1, 1)
+
+        fade = LerpColorScaleInterval(
+            door_node,
+            duration=1.0,
+            startColorScale=(1, 1, 1, 1),
+            colorScale=(1, 1, 1, 0)
+        )
+
+        def finalizar():
+            print("🚪 Porta removida da cena.")
+            door_node.removeNode()  # <- remove tudo, inclusive colisor oculto
+
+        Sequence(fade, Func(finalizar)).start()
 
     def try_answer(self, resposta: str, npc: NodePath):
         """Chama diretamente a avaliação usando threshold armazenado"""
@@ -148,4 +190,30 @@ class NPCManager:
             self.on_correct_response()
             return True
         print("❌ Resposta incorreta ou abaixo do limiar.")
+        return False
+
+    def try_prompt_nearby(self, prompt: str, obj_pos, radius: float = 2.0) -> bool:
+        """
+        Tenta validar o prompt para qualquer NPC num raio ≤ radius em XY.
+        Se atingir threshold, esconde a porta associada ao NPC.
+        """
+        model = self.quiz_system.model  # reaproveita o mesmo modelo
+        for npc in self.npcs:
+            # verifica distância XY
+            if (npc.getPos(self.app.render).getXy() - obj_pos.getXy()).length() > radius:
+                continue
+
+            answers = npc.getPythonTag("answers")
+            threshold = npc.getPythonTag("threshold")
+
+            emb_p = model.encode(prompt, convert_to_tensor=True)
+            emb_a = model.encode(answers, convert_to_tensor=True)
+            score = util.cos_sim(emb_p, emb_a).max().item()
+
+            if score >= threshold:
+                door = npc.getPythonTag("door_node")
+                if door and not door.isEmpty():
+                    self.on_correct_response(door)  # <- chama função que remove tudo corretamente
+                    print(f"✅ Porta da sala aberta! (score {score:.2f})")
+                return True
         return False

@@ -125,8 +125,13 @@ class PendingObject:
         if self.progress_text:
             self.progress_text.destroy()
         self.placed = True
-        self.position = hit
-        print(f"✅ Modelo '{self.prompt}' confirmado em {hit}")
+        self.position = hit  # salva posição final
+
+        # ------------ CHAMA O NPC MANAGER ------------
+        self.app.scene_manager.npc_manager.try_prompt_nearby(
+            self.prompt,
+            self.position  # Point3 com X,Y,Z
+        )
 
     def _normalize_scale(self, node: NodePath, desired_size: float = 1.0):
         bounds = node.getTightBounds()
