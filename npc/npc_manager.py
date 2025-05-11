@@ -122,13 +122,12 @@ class NPCManager:
         speech_node_path.setLightOff()
         speech_node_path.setDepthWrite(False)
         speech_node_path.setDepthTest(False)
-        speech_node_path.reparentTo(self.app.render)
+
+        speech_node_path.reparentTo(npc)  #reparenta diretamente ao NPC
+        speech_node_path.setPos(0, 0, 1)  #posição relativa ao topo do NPC
         speech_node_path.hide()
 
-        def update_speech(task, npc=npc, node=speech_node_path):
-            if not npc or not node:
-                return Task.done
-            node.setPos(npc.getX(), npc.getY(), npc.getZ() + 1)
+        def update_speech(task, node=speech_node_path):
             player_node = getattr(self.app.player_controller, "node", None)
             if player_node:
                 distance = (npc.getPos(self.app.render) - player_node.getPos(self.app.render)).length()
@@ -143,6 +142,7 @@ class NPCManager:
 
         self.npcs.append(npc)
         return npc
+
 
     def on_correct_response(self, door_node: NodePath):
         print("✅ Resposta correta! Procurando portas para remoção...")
