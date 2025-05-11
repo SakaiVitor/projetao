@@ -171,25 +171,37 @@ class SceneManager:
         dirs = ["north", "south", "east", "west"]
 
         if is_first and force_exit_dir:
-            door_dirs = [force_exit_dir]  # 1ª sala → só saída fixa
+            self.exit_dir = force_exit_dir
+            exit_door_node = None
+
+            # Cria apenas a parede com porta na direção da saída
+            for d in dirs:
+                if d == self.exit_dir:
+                    self._create_wall_with_door(parent, d)
+                    exit_door_node = self._create_door_only(parent, d)
+
+            # Depois, cria as outras paredes sólidas
+            for d in dirs:
+                if d != self.exit_dir:
+                    self._create_wall(parent, d)
+
+            self._spawn_npc(parent, entry_dir=None, door_node=exit_door_node)
+
         else:
             remaining = [d for d in dirs if d != entry_dir]
             door_dirs = [entry_dir, random.choice(remaining)]
+            self.exit_dir = door_dirs[-1]
+            exit_door_node = None
 
-        self.exit_dir = door_dirs[-1]
-        exit_door_node = None  # usado para passar ao NPC
+            for d in dirs:
+                if d in door_dirs:
+                    self._create_wall_with_door(parent, d)
+                    if d == self.exit_dir:
+                        exit_door_node = self._create_door_only(parent, d)
+                else:
+                    self._create_wall(parent, d)
 
-        for d in dirs:
-            if d in door_dirs:
-                self._create_wall_with_door(parent, d)
-                door = self._create_door_only(parent, d)
-                if d == self.exit_dir:
-                    exit_door_node = door  # ✅ só define aqui
-            else:
-                self._create_wall(parent, d)
-
-        # ⬇️ chama o NPC com a porta correta
-        self._spawn_npc(parent, entry_dir, door_node=exit_door_node)
+            self._spawn_npc(parent, entry_dir=entry_dir, door_node=exit_door_node)
 
     def _create_wall_with_door(self, parent: NodePath, d: str) -> None:
         """Parede dividida em 2 blocos com abertura no centro."""
@@ -229,7 +241,7 @@ class SceneManager:
 
     def _create_door_only(self, parent: NodePath, d: str) -> NodePath:
         door = self.app.loader.loadModel("assets/models/porta.obj")
-        door.setName("porta_sala")  # 🔖 nome rastreável para debug e remoção
+        door.setName(f"porta_sala_{self.room_index}_{d}")
 
         pos_map = {
             "north": (0, self.WALL_LEN + self.DOOR_THK / 2, self.WALL_ALT / 2),

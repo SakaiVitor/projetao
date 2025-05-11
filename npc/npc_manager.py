@@ -143,7 +143,6 @@ class NPCManager:
         self.npcs.append(npc)
         return npc
 
-
     def on_correct_response(self, door_node: NodePath):
         print("✅ Resposta correta! Procurando portas para remoção...")
 
@@ -166,20 +165,21 @@ class NPCManager:
         )
 
         def finalizar():
-            print(f"🚪 Fade-out concluído. Removendo {door_name}")
-            door_node.detachNode()  # remove da árvore, mas mantém referência
-            door_node.removeNode()  # apaga de verdade
-
-            # Checagem de segurança: tenta encontrar outra porta com mesmo nome
-            still_exists = self.app.render.find("**/porta_sala")
-            if not still_exists.isEmpty():
-                print(f"❌ Ainda existe: {still_exists}, forçando remoção final...")
-                still_exists.removeNode()
-            else:
+            print(f"🚪 Fade-out concluído. Tentando remover {door_name}")
+            if not door_node.isEmpty():
+                door_node.hide()  # para garantir sumiço visual imediato
+                door_node.removeNode()
                 print("🚪 Porta removida com sucesso.")
+            else:
+                print("⚠️ door_node já estava vazio.")
+
+            restantes = self.app.render.find_all_matches("**/porta_sala*")
+            if restantes:
+                print(f"❌ Ainda existem {restantes.get_num_paths()} portas com prefixo 'porta_sala':")
+                for path in restantes:
+                    print("↪️", path)
 
         Sequence(fade, Func(finalizar)).start()
-        self.app.render.ls()  # debug opcional
 
     def try_answer(self, resposta: str, npc: NodePath):
         if self.quiz_system.avaliar_resposta(resposta, npc.getPythonTag("threshold")):
