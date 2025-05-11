@@ -76,7 +76,6 @@ class HUD:
 
     def submit_prompt(self, text):
         print("📨 [HUD] submit_prompt chamado com:", text)
-        self.status.setText(f"Prompt enviado: {text}")
         self.close_prompt()
         self.app.loop.create_task(self.app.placer.handle_prompt_submission(text))
 

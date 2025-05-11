@@ -1,4 +1,4 @@
-from .pending_object import PendingObject
+from pending_object import PendingObject
 
 
 class ObjectPlacer:
