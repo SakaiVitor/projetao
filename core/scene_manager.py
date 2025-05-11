@@ -6,10 +6,14 @@ from panda3d.core import (
 import random
 from npc.npc_manager import NPCManager
 
+from direct.gui.OnscreenText import OnscreenText
+from panda3d.core import TextNode
+from panda3d.core import TextureStage, TexGenAttrib, TransformState, LMatrix4f, LVecBase3f
+
 class SceneManager:
     CELL      = 20              # distância entre salas
     WALL_LEN  = 10              # meia‐largura da sala
-    WALL_ALT  = 2               # altura da parede
+    WALL_ALT  = 5               # altura da parede
     WALL_THK  = 1               # espessura da parede
     DOOR_W    = 2               # largura visível da porta
     DOOR_THK  = .4              # profundidade da porta (porta fina)
@@ -21,32 +25,98 @@ class SceneManager:
         self.next_room   : NodePath | None = None
         self.door_node   : NodePath | None = None   # porta de saída da sala ATUAL
         self.exit_dir    = None                    # 'north' | 'south' | 'east' | 'west'
+        self.rooms: list[NodePath] = []
+        self._mapa_visivel = False
+        self._mapa_textos = []
+        self.room_grid_set = set()  # ← usado para checar colisão de posição
+
 
         self.npc_manager = NPCManager(app)
         self.textures = [f"assets/textures/floor{i:01}.jpg" for i in range(1, 7)]
         self.room_positions = [LVector3f(0, 0, 0)]
+        self.wall_textures = [f"assets/textures/walls/wall{i}.png" for i in range(1, 4)]
+
 
     # ───────────────────────────  PÚBLICOS  ────────────────────────────
     def load_first_room(self):
-        self.current_room = NodePath("Room-0")
-        self.current_room.setPos(self.room_positions[0])
-        self._build_room_contents(self.current_room, entry_dir=None, is_first=True)
-        self.current_room.reparentTo(self.app.render)
+        current_dir = random.choice(["north", "south", "east", "west"])
+        current_pos = LVector3f(0, 0, 0)
+        self.room_grid_set = {self._vec_to_tuple(current_pos)}  # adiciona a primeira sala
 
-        self.room_index = 1
-        self._preload_next_room()
+        for i in range(20):
+            room = NodePath(f"Room-{i}")
+            room.setPos(current_pos)
 
-    def load_room(self):
-        # NÃO removemos mais a sala anterior do render!
-        # if self.current_room:
-        #     self.current_room.detachNode()
+            if i == 0:
+                self._build_room_contents(room, entry_dir=None, is_first=True)
+            else:
+                entry_dir = self._opposite(prev_exit_dir)
+                self._build_room_contents(room, entry_dir=entry_dir, is_first=False)
 
-        # Ativa a próxima sala
-        self.current_room = self.next_room
-        self.current_room.reparentTo(self.app.render)
+            self.rooms.append(room)
+            self.room_positions.append(current_pos)
 
-        self.room_index += 1
-        self._preload_next_room()
+            prev_exit_dir = self.exit_dir  # definido internamente
+            next_pos = current_pos + self._direction_to_offset(prev_exit_dir)
+
+            # Tenta encontrar uma posição livre
+            tried_dirs = {prev_exit_dir}
+            while self._vec_to_tuple(next_pos) in self.room_grid_set:
+                # já ocupado → tenta outra direção
+                available_dirs = [d for d in ["north", "south", "east", "west"] if d not in tried_dirs]
+                if not available_dirs:
+                    print(f"[SceneManager] Não há mais direções livres após {i} salas.")
+                    break  # encerra mais cedo se não houver mais opções
+
+                prev_exit_dir = random.choice(available_dirs)
+                tried_dirs.add(prev_exit_dir)
+                next_pos = current_pos + self._direction_to_offset(prev_exit_dir)
+
+            # Atualiza para próxima iteração
+            current_pos = next_pos
+            self.room_grid_set.add(self._vec_to_tuple(current_pos))
+
+        for room in self.rooms:
+            room.reparentTo(self.app.render)
+
+        self.current_room = self.rooms[0]
+
+
+    def load_next_room(self):
+        if self.room_index + 1 < len(self.rooms):
+            self.load_room(self.room_index + 1)
+        else:
+            print("[SceneManager] Fim das salas.")
+
+
+
+
+    def _direction_to_offset(self, direction):
+        return {
+            "north": LVector3f(0,  self.CELL, 0),
+            "south": LVector3f(0, -self.CELL, 0),
+            "east":  LVector3f( self.CELL, 0, 0),
+            "west":  LVector3f(-self.CELL, 0, 0),
+        }.get(direction, LVector3f(0, self.CELL, 0))  # fallback em caso de erro
+
+
+    def load_room(self, index):
+        if 0 <= index < len(self.rooms):
+            if self.current_room:
+                self.current_room.detachNode()
+            self.current_room = self.rooms[index]
+            self.current_room.reparentTo(self.app.render)
+            self.room_index = index
+
+            if self._mapa_visivel and self._mapa_textos:
+                self.atualizar_sala_atual_no_mapa()
+            else:
+                print("[SceneManager] Mapa não está visível ou ainda não foi gerado.")
+
+
+
+
+
 
     def abrir_porta(self):
         if self.door_node and not self.door_node.isEmpty():
@@ -78,6 +148,7 @@ class SceneManager:
 
     # ──────────────────────  CONSTRUÇÃO DA SALA  ───────────────────────
     def _build_room_contents(self, parent, entry_dir, is_first):
+        parent.setTag("wall_texture", random.choice(self.wall_textures))
         self._generate_floor(parent)
         print(f"[scene_manager.py - _build_room_contents] Chão gerado na posição: {parent.getPos()}")
 
@@ -110,9 +181,61 @@ class SceneManager:
     def _generate_ceiling(self, parent):
         cm = CardMaker("ceiling"); cm.setFrame(-self.WALL_LEN, self.WALL_LEN, -self.WALL_LEN, self.WALL_LEN)
         ceiling = parent.attachNewNode(cm.generate())
-        ceiling.setPos(0, 0, self.WALL_ALT + .5)
+        ceiling.setPos(0, 0, self.WALL_ALT)
         ceiling.setHpr(0,  90, 0)
         ceiling.setColor(0.8, 0.8, 0.8, 1)
+
+    def _create_wall_with_door(self, parent, d):
+        """Cria uma parede com um 'buraco' (porta) no meio usando dois blocos."""
+        is_horizontal = d in ("north", "south")
+        wall_z = self.WALL_ALT / 2
+        wall_length = self.WALL_LEN
+        door_half = self.DOOR_W / 2
+        frame_half = (wall_length - door_half)   # Cada batente ocupa essa metade
+
+        for side in (-1, 1):
+            piece = self.app.loader.loadModel("models/misc/rgbCube")
+            if is_horizontal:
+                piece.setScale(frame_half, self.WALL_THK, self.WALL_ALT + 0.5)
+                x = side * (wall_length - frame_half / 2)
+                pos = (x, self.WALL_LEN + self.WALL_THK / 2, wall_z) if d == "north" else (x, -self.WALL_LEN - self.WALL_THK / 2, wall_z)
+            else:
+                piece.setScale(self.WALL_THK, frame_half, self.WALL_ALT + 0.5)
+                y = side * (wall_length - frame_half / 2)
+                pos = (self.WALL_LEN + self.WALL_THK / 2, y, wall_z) if d == "east" else (-self.WALL_LEN - self.WALL_THK / 2, y, wall_z)
+
+            piece.setPos(*pos)
+            # self._apply_random_texture(piece)
+            self._apply_room_texture(parent, piece)
+            piece.reparentTo(parent)
+
+            scale = piece.getScale()
+            collider_box = CollisionBox((0, 0, self.WALL_ALT / 2), scale.getX(), scale.getY(), self.WALL_ALT / 2)
+
+            col_np = piece.attachNewNode(CollisionNode(f"wall-col-{d}-{side}"))
+            col_np.node().addSolid(collider_box)
+            col_np.node().setIntoCollideMask(BitMask32.bit(1))
+
+    def _create_door_only(self, parent, d):
+        """Porta decorativa colocada no centro do buraco da parede"""
+        door = self.app.loader.loadModel("models/misc/rgbCube")
+        pos_map = {
+            "north": (0,  self.WALL_LEN + self.DOOR_THK / 2, self.WALL_ALT / 2),
+            "south": (0, -self.WALL_LEN - self.DOOR_THK / 2, self.WALL_ALT / 2),
+            "east":  (self.WALL_LEN + self.DOOR_THK / 2, 0, self.WALL_ALT / 2),
+            "west":  (-self.WALL_LEN - self.DOOR_THK / 2, 0, self.WALL_ALT / 2),
+        }
+
+        if d in ("north", "south"):
+            door.setScale(self.DOOR_W, self.DOOR_THK, self.WALL_ALT + 0.5)
+        else:
+            door.setScale(self.DOOR_THK, self.DOOR_W, self.WALL_ALT + 0.5)
+
+        door.setPos(*pos_map[d])
+        door.setColor(0.4, 0.2, 0.1, 1)
+        door.reparentTo(parent)
+        return door
+
 
     def _generate_walls_and_doors(self, parent, entry_dir, is_first):
         dirs = ["north", "south", "east", "west"]
@@ -123,23 +246,24 @@ class SceneManager:
             "east":  ( self.WALL_LEN, 0, 1),
         }
 
-        # define portas
         if is_first:
-            door_dirs = [random.choice(dirs)]              # apenas 1 porta
+            door_dirs = [random.choice(dirs)]  # Apenas uma saída
         else:
             remaining = [d for d in dirs if d != entry_dir]
             door_dirs = [entry_dir, random.choice(remaining)]
 
-        self.exit_dir = door_dirs[-1]                      # porta de saída da sala atual
+        self.exit_dir = door_dirs[-1]
         self.door_node = None
 
         for d in dirs:
             if d in door_dirs:
-                door = self._create_door(parent, d, wall_pos[d])
+                self._create_wall_with_door(parent, d)
+                door = self._create_door_only(parent, d)
                 if d == self.exit_dir:
                     self.door_node = door
             else:
                 self._create_wall(parent, d, wall_pos[d])
+
 
     # ───── helpers de construção ─────
     def _create_wall(self, parent, d, pos):
@@ -156,14 +280,15 @@ class SceneManager:
 
         # Escala e orientação
         if d in ("north", "south"):
-            wall.setScale(self.WALL_LEN, self.WALL_THK, self.WALL_ALT)
-            collider_box = CollisionBox((0, 0, self.WALL_ALT / 2), self.WALL_LEN, self.WALL_THK, self.WALL_ALT / 2)
+            wall.setScale(self.CELL, self.WALL_THK, self.WALL_ALT)
+            collider_box = CollisionBox((0, 0, self.WALL_ALT / 2), self.CELL, self.WALL_THK, self.WALL_ALT / 2)
         else:  # leste / oeste
-            wall.setScale(self.WALL_THK, self.WALL_LEN, self.WALL_ALT)
-            collider_box = CollisionBox((0, 0, self.WALL_ALT / 2), self.WALL_THK, self.WALL_LEN, self.WALL_ALT / 2)
+            wall.setScale(self.WALL_THK, self.CELL, self.WALL_ALT)
+            collider_box = CollisionBox((0, 0, self.WALL_ALT / 2), self.WALL_THK, self.CELL, self.WALL_ALT / 2)
 
         wall.setPos(*pos)
-        self._apply_random_texture(wall)
+        # self._apply_random_texture(wall)
+        self._apply_room_texture(parent, wall)
         wall.reparentTo(parent)
 
         col_np = wall.attachNewNode(CollisionNode(f"wall-col-{d}"))
@@ -192,6 +317,31 @@ class SceneManager:
         door.setColor(0.55, 0.27, 0.07, 1)
         door.reparentTo(parent)
         return door   # sem colisor para poder ser “aberta”
+    
+    def _apply_room_texture(self, room: NodePath, node: NodePath):
+        texture_path = room.getTag("wall_texture")
+        print(f"[DEBUG] Aplicando textura: {texture_path} na sala {room.getName()}")
+        texture = self.app.loader.loadTexture(texture_path)
+
+        node.setColor(1, 1, 1, 1)
+
+        ts = TextureStage.getDefault()
+        node.setTexture(ts, texture)
+        node.setTexGen(ts, TexGenAttrib.MWorldPosition)
+
+        # Rotação + escala
+        scale_x = 0.2
+        scale_y = 0.4
+        rotation_degrees = 90
+
+        rotation = LMatrix4f.rotateMat(rotation_degrees, LVecBase3f(0, 0, 1))
+        scale = LMatrix4f.scaleMat(scale_x, scale_y, 1)
+        matrix = rotation
+        matrix *= scale  # ← aplica a rotação antes da escala
+
+        tex_transform = TransformState.makeMat(matrix)
+        node.setTexTransform(ts, tex_transform)
+
 
     def _spawn_npc(self, parent):
         offsets = {
@@ -253,6 +403,84 @@ class SceneManager:
 
     def _quiz_passed(self):
         return True
+    
+    def _vec_to_tuple(self, vec: LVector3f):
+        return (round(vec.getX()), round(vec.getY()))
+    
+    #-------------------MAPAS VISÍVEIS-------------------
+    def gerar_mapa_resumo(self):
+        center_x = 0.7
+        center_y = 0.7
+        scale = 0.05
+        offset = 0.06
+
+        min_x = min(p.getX() for p in self.room_positions)
+        min_y = min(p.getY() for p in self.room_positions)
+
+        self._mapa_textos = []
+
+        for i, pos in enumerate(self.room_positions):
+            grid_x = int((pos.getX() - min_x) / self.CELL)
+            grid_y = int((pos.getY() - min_y) / self.CELL)
+
+            text = OnscreenText(
+                text=str(i),
+                pos=(center_x - offset * grid_x, center_y - offset * grid_y),
+                scale=scale,
+                fg=(1, 1, 1, 1),
+                bg=(1, 0, 0, 0.7) if i == self.room_index else (0, 0, 0, 0.6),
+                align=TextNode.ACenter,
+                mayChange=True
+            )
+            self._mapa_textos.append(text)
+
+        self._mapa_visivel = True
+
+
+    def esconder_mapa_resumo(self):
+        for t in self._mapa_textos:
+            t.destroy()
+        self._mapa_textos = []
+        self._mapa_visivel = False
+
+
+    def toggle_mapa_resumo(self):
+        if self._mapa_visivel:
+            self.esconder_mapa_resumo()
+        else:
+            self.gerar_mapa_resumo()
+
+    def atualizar_sala_atual_no_mapa(self):
+        print(f"[Mapa] Atualizando destaque para sala {self.room_index}")
+        if not self._mapa_textos:
+            print("[SceneManager] Nenhum texto de mapa disponível.")
+            return
+
+        for i, t in enumerate(self._mapa_textos):
+            if t is None:
+                continue
+            if i == self.room_index:
+                t.setBg((1, 0, 0, 0.7))  # vermelho
+            else:
+                t.setBg((0, 0, 0, 0.6))  # fundo padrão
+
+    def atualizar_sala_baseada_na_posicao(self, player_pos: LVector3f):
+        """
+        Atualiza o índice da sala atual com base na posição do jogador.
+        """
+        for i, sala_pos in enumerate(self.room_positions):
+            # Verifica se jogador está dentro do volume da sala
+            dx = abs(player_pos.getX() - sala_pos.getX())
+            dy = abs(player_pos.getY() - sala_pos.getY())
+            if dx <= self.CELL / 2 and dy <= self.CELL / 2:
+                if self.room_index != i:
+                    print(f"[SceneManager] Jogador entrou na sala {i}")
+                    self.room_index = i
+                    if self._mapa_visivel:
+                        self.atualizar_sala_atual_no_mapa()
+                return
+
+
 
     @staticmethod
     def _opposite(d):

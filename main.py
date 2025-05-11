@@ -13,6 +13,7 @@ import os
 class Game(ShowBase):
     def __init__(self):
         ShowBase.__init__(self)
+        self.cTrav = CollisionTraverser()
         self.engine = Engine(self)
         self.scene_manager = SceneManager(self)
         self.player_controller = PlayerController(self)
@@ -28,7 +29,6 @@ class Game(ShowBase):
         self.prompt_manager = PromptManager()
         self.placer = ObjectPlacer(self)
 
-        self.cTrav = CollisionTraverser()
 
         L = SceneManager.WALL_LEN
         self.entry_offsets = {
@@ -43,23 +43,31 @@ class Game(ShowBase):
         # Eventos de interação com ObjectPlacer
         self.accept("mouse1", self.confirm_placement)
 
+        self.accept("m", self.scene_manager.toggle_mapa_resumo)
+        self.accept("M", self.scene_manager.toggle_mapa_resumo)  # para o caso do Shift estar ativado
+
+
     def update(self, task):
         if self.scene_manager.door_node:
             player_pos = self.player_controller.node.getPos(self.render)
             door_world = self.scene_manager.door_node.getPos(self.render)
             dist = (player_pos.get_xz() - door_world.get_xz()).length()
 
-            if dist < 2.5:
-                prev_exit = self.scene_manager.exit_dir
-                self.scene_manager.load_room()
-                offset = self.entry_offsets.get(prev_exit, LVector3f(0, 0, 0))
-                new_room_pos = self.scene_manager.current_room.getPos(self.render)
-                target = new_room_pos + offset + LVector3f(0, 0, 1.0)
+            self.scene_manager.atualizar_sala_baseada_na_posicao(player_pos)
 
-                print(f"[main.py - update] Carregando nova sala em: {new_room_pos}")
-                print(f"[main.py - update] Jogador reposicionado para: {target}")
 
-                self.player_controller.node.setPos(target)
+            # if dist < 2.5:
+            #     prev_exit = self.scene_manager.exit_dir
+            #     self.scene_manager.load_room()
+            #     self.scene_manager.load_next_room()
+            #     offset = self.entry_offsets.get(prev_exit, LVector3f(0, 0, 0))
+            #     new_room_pos = self.scene_manager.current_room.getPos(self.render)
+            #     target = new_room_pos + offset + LVector3f(0, 0, 1.0)
+
+            #     print(f"[main.py - update] Carregando nova sala em: {new_room_pos}")
+            #     print(f"[main.py - update] Jogador reposicionado para: {target}")
+
+            #     self.player_controller.node.setPos(target)
 
         if self.mouseWatcherNode.is_button_down('space'):
             self.scene_manager.abrir_porta()

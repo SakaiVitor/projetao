@@ -31,16 +31,20 @@ class PlayerController:
         self.setup_controls()
 
         # ── Sistema de colisão ─────────────────────────────────
-        self.cTrav = CollisionTraverser()
+        # self.cTrav = CollisionTraverser()
+        self.cTrav = self.app.cTrav
+        print("[DEBUG] Tipo de self.cTrav:", type(self.cTrav))
+
         self.pusher = CollisionHandlerPusher()
 
         cnode = CollisionNode("playerCollider")
-        cnode.addSolid(CollisionSphere(0, 0, 0, 0.5))  # esfera no centro do dummy
+        cnode.addSolid(CollisionSphere(0, 0, 0, 1))  # esfera no centro do dummy
         cnode.setFromCollideMask(BitMask32.bit(1))
         cnode.setIntoCollideMask(BitMask32.allOff())
 
         self.collider_node = self.node.attachNewNode(cnode)
         self.pusher.addCollider(self.collider_node, self.node)
+        
         self.cTrav.addCollider(self.collider_node, self.pusher)
 
         # ── Travar mouse no centro ─────────────────────────────
@@ -100,7 +104,9 @@ class PlayerController:
         if direction.length() > 0:
             direction.normalize()
             world_dir = self.node.getQuat().xform(direction)
-            self.node.setPos(self.node.getPos() + world_dir * self.speed * dt)
+            # self.node.setPos(self.node.getPos() + world_dir * self.speed * dt)
+            self.node.setFluidPos(self.node.getPos() + world_dir * self.speed * dt)
+
 
         # ── COLISÃO ─────────────────────────────────
         self.cTrav.traverse(self.app.render)
