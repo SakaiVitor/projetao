@@ -123,20 +123,14 @@ class SceneManager:
             force_exit_dir: str | None = None,
             is_first: bool = False
     ) -> None:
-        """Gera todo o conteúdo de uma sala."""
-
-        wall_tex = random.choice(self.wall_textures)
-        floor_tex = random.choice(self.floor_textures)
-        ceiling_tex = random.choice(self.ceiling_textures)
-
-        parent.setTag("wall_texture", wall_tex)
-        parent.setTag("floor_texture", floor_tex)
-        parent.setTag("ceiling_texture", ceiling_tex)
+        parent.setTag("wall_texture", random.choice(self.wall_textures))
+        parent.setTag("floor_texture", random.choice(self.floor_textures))
+        parent.setTag("ceiling_texture", random.choice(self.ceiling_textures))
 
         self._generate_floor(parent)
         self._generate_ceiling(parent)
         self._generate_walls_and_doors(parent, entry_dir, force_exit_dir, is_first)
-        self._spawn_npc(parent, entry_dir)
+
         self._scatter_decor(parent, entry_dir)
 
     # ──────────── ESTRUTURAS: CHÃO / TETO ─────────────
@@ -168,30 +162,34 @@ class SceneManager:
 
     # ────────── PAREDES / PORTAS ──────────
     def _generate_walls_and_doors(
-        self,
-        parent: NodePath,
-        entry_dir: str | None,
-        force_exit_dir: str | None,
-        is_first: bool
+            self,
+            parent: NodePath,
+            entry_dir: str | None,
+            force_exit_dir: str | None,
+            is_first: bool
     ) -> None:
         dirs = ["north", "south", "east", "west"]
 
         if is_first and force_exit_dir:
-            door_dirs = [force_exit_dir]             # 1ª sala → só saída Norte
+            door_dirs = [force_exit_dir]  # 1ª sala → só saída fixa
         else:
             remaining = [d for d in dirs if d != entry_dir]
             door_dirs = [entry_dir, random.choice(remaining)]
 
-        # self.exit_dir = última posição da lista (saída)
         self.exit_dir = door_dirs[-1]
-        self.door_node = None
+        exit_door_node = None  # usado para passar ao NPC
 
         for d in dirs:
-            if d in door_dirs:  # parede com porta
+            if d in door_dirs:
                 self._create_wall_with_door(parent, d)
-                self._create_door_only(parent, d)
-            else:  # parede sólida
+                door = self._create_door_only(parent, d)
+                if d == self.exit_dir:
+                    exit_door_node = door  # ✅ só define aqui
+            else:
                 self._create_wall(parent, d)
+
+        # ⬇️ chama o NPC com a porta correta
+        self._spawn_npc(parent, entry_dir, door_node=exit_door_node)
 
     def _create_wall_with_door(self, parent: NodePath, d: str) -> None:
         """Parede dividida em 2 blocos com abertura no centro."""
@@ -285,21 +283,21 @@ class SceneManager:
         col_np.node().setIntoCollideMask(BitMask32.bit(1))
 
     # ───────────── SPAWN DE NPC ─────────────
-    def _spawn_npc(self, parent: NodePath, entry_dir: str | None) -> None:
+    def _spawn_npc(self, parent: NodePath, entry_dir: str | None, door_node: NodePath | None) -> None:
         offsets = {
-            "north": ( 2,  self.WALL_LEN - 1, 0),
-            "south": ( 2, -self.WALL_LEN + 1, 0),
-            "west":  (-self.WALL_LEN + 1, -2, 0),
-            "east":  ( self.WALL_LEN - 1, -2, 0),
+            "north": (2, self.WALL_LEN - 1, 0),
+            "south": (2, -self.WALL_LEN + 1, 0),
+            "west": (-self.WALL_LEN + 1, -2, 0),
+            "east": (self.WALL_LEN - 1, -2, 0),
         }
+
         if self.exit_dir in offsets:
             npc = self.npc_manager.spawn_npc(
                 position=LVector3f(*offsets[self.exit_dir]),
                 facing_direction=self._opposite(self.exit_dir),
-                door_node=self.door_node
+                door_node=door_node  # ✅ usa a referência certa
             )
             npc.reparentTo(parent)
-
 
     # ──────────── DECORAÇÃO ────────────
     def _scatter_decor(self, parent: NodePath, entry_dir: str | None) -> None:
