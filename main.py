@@ -77,23 +77,35 @@ class Game(ShowBase):
     def handle_prompt_submission(self, prompt: str):
         print("🎯 [Game] handle_prompt_submission com prompt:", prompt)
 
-        async def async_flow():
+        async def async_flow(prompt_text: str):
+            # 1. Inicia preview da engrenagem
             await self.placer.start_placement()
-            print("⚙️ [Game] async_flow executando...")
-            obj_temp_path = await self.prompt_manager.request_model(prompt)
+
+            # 2. Aguarda clique do jogador (detecta nova engrenagem)
+            print("🕐 Aguardando posicionamento da engrenagem...")
+            before = len(self.placer.temp_models)
+
+            while len(self.placer.temp_models) == before:
+                await asyncio.sleep(0.1)
+
+            index = before  # ← posição específica da engrenagem associada a este prompt
+            pos = self.placer.temp_models[index].getPos()
+
+            # 3. Solicita modelo
+            print("⚙️ [Game] Enviando prompt para gerar modelo...")
+            obj_temp_path = await self.prompt_manager.request_model(prompt_text)
             print("📦 [Game] Modelo salvo em (temp):", obj_temp_path)
 
-            # Copia para um caminho fixo e confiável
-            final_path = os.path.join("assets", "tmp_models", "mesh.obj")
+            final_path = os.path.join("assets", "tmp_models", f"{prompt_text[:10]}_mesh.obj")
             os.makedirs(os.path.dirname(final_path), exist_ok=True)
             shutil.copy(obj_temp_path, final_path)
 
             print("✅ [Game] Modelo copiado para:", final_path)
-            await self.placer.start_placement(path=final_path)
 
-        self.loop.create_task(async_flow())
+            # 4. Substitui a engrenagem correta pelo modelo final
+            await self.placer.start_placement(path=final_path, pos=pos, index_to_replace=index)
 
-
+        self.loop.create_task(async_flow(prompt))
 
 if __name__ == "__main__":
     from sys import platform
