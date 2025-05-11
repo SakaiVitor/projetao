@@ -67,10 +67,23 @@ class NPCManager:
         speech_node_path.setDepthTest(False)
         speech_node_path.reparentTo(self.app.render)
 
-        # Atualiza posição e orientação para seguir NPC
+        speech_node_path.hide()  # ← começa invisível
+
+        # Atualiza posição e visibilidade com base na distância
         def update_speech(task, npc=npc, node=speech_node_path):
-            if npc and node:
-                node.setPos(npc.getX(), npc.getY(), npc.getZ() + 1)
+            if not npc or not node:
+                return Task.done
+
+            node.setPos(npc.getX(), npc.getY(), npc.getZ() + 1)
+
+            player_node = getattr(self.app.player_controller, "node", None)
+            if player_node:
+                distance = (npc.getPos(self.app.render) - player_node.getPos(self.app.render)).length()
+                if distance < 10.0:
+                    node.show()
+                else:
+                    node.hide()
+
             return Task.cont
 
         self.app.taskMgr.add(update_speech, f"text-follow-{id(npc)}")
