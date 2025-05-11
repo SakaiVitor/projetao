@@ -3,6 +3,7 @@ from pathlib import Path
 from direct.task import Task
 import random
 from math import sin
+from prompt.quiz_system import QuizSystem  # ajuste se necessário
 
 class NPCManager:
     def __init__(self, app):
@@ -10,13 +11,59 @@ class NPCManager:
         self.npc_dir = Path("assets/models/npcs")
         self.npc_models = list(self.npc_dir.glob("*.obj"))
         self.spawned_models = set()
+        self.quiz_system = QuizSystem()
 
-        self.speech_lines = [
-            "Olá, viajante!",
-            "Já enfrentou os desafios daqui?",
-            "Use sua criatividade para seguir em frente.",
-            "Essa sala tem algo especial...",
-            "Você pode mudar tudo com palavras.",
+        self.qa_triples = [
+            {
+                "question": "Sou um gênio que sai de uma lâmpada e realiza três desejos. Quem sou eu?",
+                "answers": ["Gênio da Lâmpada", "Genie", "Gênio", "Gênio do Aladdin"],
+                "threshold": 0.65
+            },
+            {
+                "question": "Com capa preta, defendo Gotham à noite. Quem sou?",
+                "answers": ["Batman", "O Cavaleiro das Trevas", "Bruce Wayne"],
+                "threshold": 0.7
+            },
+            {
+                "question": "Sou pequeno, verde, mestre da Força. Quem sou?",
+                "answers": ["Yoda", "Mestre Yoda"],
+                "threshold": 0.7
+            },
+            {
+                "question": "Salvei vidas e enfrentei horrores no Titanic. Quem sou?",
+                "answers": ["Jack", "Jack Dawson", "Leonardo DiCaprio"],
+                "threshold": 0.68
+            },
+            {
+                "question": "Comandante de um navio estelar, exploro a fronteira final. Quem sou?",
+                "answers": ["Capitão Kirk", "James T. Kirk", "Kirk"],
+                "threshold": 0.7
+            },
+            {
+                "question": "Sou feito de um metal poderoso e carrego um escudo com uma estrela. Quem sou?",
+                "answers": ["Capitão América", "Steve Rogers"],
+                "threshold": 0.7
+            },
+            {
+                "question": "Com uma varinha e uma cicatriz na testa, enfrento o mal. Quem sou?",
+                "answers": ["Harry Potter"],
+                "threshold": 0.75
+            },
+            {
+                "question": "Sou um artefato com poder de controlar o tempo. Quem sou?",
+                "answers": ["Ampulheta", "Ampulheta do Tempo", "Time Turner"],
+                "threshold": 0.6
+            },
+            {
+                "question": "Meu criador é Tony Stark. Sou uma armadura com inteligência. Quem sou?",
+                "answers": ["Homem de Ferro", "Iron Man", "Tony Stark"],
+                "threshold": 0.7
+            },
+            {
+                "question": "Sou uma bola dourada veloz usada em um esporte mágico. Quem sou?",
+                "answers": ["Pomo de Ouro", "Golden Snitch"],
+                "threshold": 0.65
+            },
         ]
 
     def spawn_npc(self, position: LVector3f) -> NodePath:
@@ -32,18 +79,15 @@ class NPCManager:
         model_path = random.choice(available_models)
         self.spawned_models.add(model_path)
 
-        # Carrega o modelo
         npc = self.app.loader.loadModel(Filename.from_os_specific(str(model_path)))
         npc.setScale(2)
         npc.setPos(position)
         npc.reparentTo(self.app.render)
 
-        # Alinha ao chão com leve sobreposição
         min_bound, max_bound = npc.getTightBounds()
         if min_bound and max_bound:
             npc.setZ(position.getZ() - min_bound.getZ() - 0.05)
 
-        # Animação de respiração
         def breathing_task(task, node=npc):
             scale = 2 + 0.02 * sin(task.time * 2)
             node.setScale(scale)
@@ -51,10 +95,15 @@ class NPCManager:
 
         self.app.taskMgr.add(breathing_task, f"breathing-task-{id(npc)}")
 
-        # Cria texto flutuante
-        speech_text = random.choice(self.speech_lines)
+        # Seleciona e define enigma no sistema
+        qa = random.choice(self.qa_triples)
+        self.quiz_system.definir_enigma(qa["question"], qa["answers"])
+
+        npc.setPythonTag("threshold", qa["threshold"])  # só o threshold precisa ser guardado
+
+        # Texto flutuante do enigma
         speech_node_text = TextNode("npc-text")
-        speech_node_text.setText(speech_text)
+        speech_node_text.setText(qa["question"])
         speech_node_text.setAlign(TextNode.ACenter)
         speech_node_text.setTextColor(1, 1, 1, 1)
         speech_node_text.setCardColor(0, 0, 0, 1)
@@ -67,12 +116,21 @@ class NPCManager:
         speech_node_path.setDepthTest(False)
         speech_node_path.reparentTo(self.app.render)
 
-        # Atualiza posição e orientação para seguir NPC
         def update_speech(task, npc=npc, node=speech_node_path):
-            if npc and node:
-                node.setPos(npc.getX(), npc.getY(), npc.getZ() + 1)
+            node.setPos(npc.getX(), npc.getY(), npc.getZ() + 1)
             return Task.cont
 
         self.app.taskMgr.add(update_speech, f"text-follow-{id(npc)}")
 
         return npc
+
+    def on_correct_response(self):
+        print("✅ Resposta correta! Liberando progresso...")
+
+    def try_answer(self, resposta: str, npc: NodePath):
+        """Chama diretamente a avaliação usando threshold armazenado"""
+        if self.quiz_system.avaliar_resposta(resposta, npc.getPythonTag("threshold")):
+            self.on_correct_response()
+            return True
+        print("❌ Resposta incorreta ou abaixo do limiar.")
+        return False

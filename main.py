@@ -6,9 +6,7 @@ from player.controller import PlayerController
 from ui.hud import HUD
 from prompt.prompt_manager import PromptManager
 from player.object_placer import ObjectPlacer
-import shutil
-import os
-
+import asyncio
 
 class Game(ShowBase):
     def __init__(self):
@@ -17,18 +15,14 @@ class Game(ShowBase):
         self.scene_manager = SceneManager(self)
         self.player_controller = PlayerController(self)
         self.hud = HUD(self)
-        self.placer = ObjectPlacer(self)  # instancia o colocador de objetos
-
+        self.placer = ObjectPlacer(self)
+        self.prompt_manager = PromptManager()
         self.loop = asyncio.get_event_loop()
-        self.taskMgr.add(self._poll_asyncio, "asyncioPump")
+
+        self.cTrav = CollisionTraverser()
 
         self.scene_manager.force_doors_open = False
         self.scene_manager.load_first_room()
-
-        self.prompt_manager = PromptManager()
-        self.placer = ObjectPlacer(self)
-
-        self.cTrav = CollisionTraverser()
 
         L = SceneManager.WALL_LEN
         self.entry_offsets = {
@@ -39,8 +33,9 @@ class Game(ShowBase):
         }
 
         self.taskMgr.add(self.update, "update")
+        self.taskMgr.add(self._poll_asyncio, "asyncioPump")
 
-        # Eventos de interação com ObjectPlacer
+        # clique para confirmar posicionamento
         self.accept("mouse1", self.confirm_placement)
 
     def update(self, task):
@@ -58,7 +53,6 @@ class Game(ShowBase):
 
                 print(f"[main.py - update] Carregando nova sala em: {new_room_pos}")
                 print(f"[main.py - update] Jogador reposicionado para: {target}")
-
                 self.player_controller.node.setPos(target)
 
         if self.mouseWatcherNode.is_button_down('space'):
@@ -67,45 +61,16 @@ class Game(ShowBase):
         return task.cont
 
     def _poll_asyncio(self, task):
-        self.loop.stop()        # encerra o passo anterior
-        self.loop.run_forever() # executa pendentes
+        self.loop.stop()
+        self.loop.run_forever()
         return task.cont
 
     def confirm_placement(self):
-        self.placer.confirm_placement()
+        self.placer.confirm_preview_under_cursor()
 
     def handle_prompt_submission(self, prompt: str):
-        print("🎯 [Game] handle_prompt_submission com prompt:", prompt)
-
-        async def async_flow(prompt_text: str):
-            # 1. Inicia preview da engrenagem
-            await self.placer.start_placement()
-
-            # 2. Aguarda clique do jogador (detecta nova engrenagem)
-            print("🕐 Aguardando posicionamento da engrenagem...")
-            before = len(self.placer.temp_models)
-
-            while len(self.placer.temp_models) == before:
-                await asyncio.sleep(0.1)
-
-            index = before  # ← posição específica da engrenagem associada a este prompt
-            pos = self.placer.temp_models[index].getPos()
-
-            # 3. Solicita modelo
-            print("⚙️ [Game] Enviando prompt para gerar modelo...")
-            obj_temp_path = await self.prompt_manager.request_model(prompt_text)
-            print("📦 [Game] Modelo salvo em (temp):", obj_temp_path)
-
-            final_path = os.path.join("assets", "tmp_models", f"{prompt_text[:10]}_mesh.obj")
-            os.makedirs(os.path.dirname(final_path), exist_ok=True)
-            shutil.copy(obj_temp_path, final_path)
-
-            print("✅ [Game] Modelo copiado para:", final_path)
-
-            # 4. Substitui a engrenagem correta pelo modelo final
-            await self.placer.start_placement(path=final_path, pos=pos, index_to_replace=index)
-
-        self.loop.create_task(async_flow(prompt))
+        print("📨 [Game] Enviando prompt:", prompt)
+        self.loop.create_task(self.placer.handle_prompt_submission(prompt))
 
 if __name__ == "__main__":
     from sys import platform
