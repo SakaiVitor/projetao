@@ -269,7 +269,7 @@ class SceneManager:
             "west": (-self.WALL_LEN - self.DOOR_THK / 2, 0, self.WALL_ALT / 2),
         }
 
-        DOOR_VISIBLE_WIDTH = 5
+        DOOR_VISIBLE_WIDTH = 6
 
         if d in ("north", "south"):
             door.setScale(DOOR_VISIBLE_WIDTH, self.DOOR_THK, self.WALL_ALT + .5)
@@ -278,8 +278,8 @@ class SceneManager:
 
         # ⚠️ Correção de alinhamento apenas para leste/oeste
         offset_fix = {
-            "east": LVector3f(0, 0.3, 0),
-            "west": LVector3f(0, -0.3, 0),
+            "east": LVector3f(0, -0.45, 0),
+            "west": LVector3f(0, -0.45, 0),
         }.get(d, LVector3f(0, 0, 0))
 
         final_pos = LVector3f(*pos_map[d]) + offset_fix
