@@ -71,6 +71,7 @@ class NPCManager:
                 "threshold": 0.65
             },
         ]
+        self.perguntas_restantes = self.qa_triples.copy()
 
     def spawn_npc(self, *, door_node=None, npc_scale=3.0) -> NodePath:
         if not self.npc_models:
@@ -100,7 +101,13 @@ class NPCManager:
 
         self.app.taskMgr.add(breathing_task, f"breathing-task-{id(npc)}")
 
-        qa = random.choice(self.qa_triples)
+        if not self.perguntas_restantes:
+            print("[NPCManager] Todas as perguntas foram usadas. Reiniciando ciclo.")
+            self.perguntas_restantes = self.qa_triples.copy()
+
+        qa = random.choice(self.perguntas_restantes)
+        self.perguntas_restantes.remove(qa)
+
         self.quiz_system.definir_enigma(qa["question"], qa["answers"])
         npc.setPythonTag("threshold", qa["threshold"])
 
@@ -180,16 +187,7 @@ class NPCManager:
 
         Sequence(fade, Func(finalizar)).start()
 
-    def try_answer(self, resposta: str, npc: NodePath):
-        if self.quiz_system.avaliar_resposta(resposta, npc.getPythonTag("threshold")):
-            door = npc.getPythonTag("door_node")
-            if door and not door.isEmpty():
-                self.on_correct_response(door)
-            return True
-        print("❌ Resposta incorreta ou abaixo do limiar.")
-        return False
-
-    def try_prompt_nearby(self, prompt: str, obj_pos, radius: float = 2.0) -> bool:
+    def try_prompt_nearby(self, prompt: str, obj_pos, radius: float = 5) -> bool:
         model = self.quiz_system.model
         for npc in self.npcs:
             if (npc.getPos(self.app.render).getXy() - obj_pos.getXy()).length() > radius:
