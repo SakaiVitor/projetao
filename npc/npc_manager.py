@@ -26,7 +26,7 @@ class NPCManager:
                 "threshold": 0.7
             },
             {
-                "question": "Você compra para comer, mas jamais comerá?",
+                "question": "Você compra para comer, mas jamais comerá.",
                 "answers": ["Prato", "Talher", "Garfo", "Faca", "Colher"],
                 "threshold": 0.7
             },
@@ -49,7 +49,12 @@ class NPCManager:
                 "question": "Só posso ser empunhada pelo verdadeiro rei da Bretanha. O que sou?",
                 "answers": ["Excalibur", "Espada Excalibur"],
                 "threshold": 0.8
-            }
+            },
+            {
+                "question": "Tenho chaves, mas não abro portas. Tenho notas, mas não sou dinheiro. Quem sou eu?",
+                "answers": ["Piano", "Teclado"],
+                "threshold": 0.7
+            },
         ]
         self.perguntas_restantes = self.qa_triples.copy()
 
