@@ -133,7 +133,7 @@ class PendingObject:
             self.position  # Point3 com X,Y,Z
         )
 
-    def _normalize_scale(self, node: NodePath, desired_size: float = 1.0):
+    def _normalize_scale(self, node: NodePath, desired_size: float = 3.0):
         bounds = node.getTightBounds()
         if not bounds or bounds[0] is None or bounds[1] is None:
             return

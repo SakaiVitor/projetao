@@ -4,10 +4,11 @@ import random
 from math import sin, degrees, atan2
 from glob import glob
 
+from direct.interval.LerpInterval import LerpHprInterval
 from panda3d.core import (
     NodePath, LVector3f, CardMaker, CollisionNode, CollisionBox, Point3, Vec3,
     CollisionPlane, BitMask32, Plane, TextureStage, TexGenAttrib, TransformState,
-    LMatrix4f, LVecBase3f, TextNode, Filename
+    LMatrix4f, LVecBase3f, TextNode, Filename, Texture
 )
 from direct.gui.OnscreenText import OnscreenText
 from direct.task import Task
@@ -39,6 +40,7 @@ class SceneManager:
 
         self._mapa_visivel = False
         self._mapa_textos  : list[OnscreenText] = []
+        self._limpeza_feita = False
 
         self.npc_manager   = NPCManager(app)
         self.floor_textures = glob("assets/textures/floor/*.jpg") + glob("assets/textures/floor/*.png")
@@ -56,7 +58,7 @@ class SceneManager:
         self.room_grid_set = {self._vec_to_tuple(current_pos)}
 
         prev_exit_dir = "north"                 # saída fixa da 1ª sala
-        for i in range(5):                      # TOTAL = 5
+        for i in range(6):                      # TOTAL = 5
             room = NodePath(f"Room-{i}")
             room.setPos(current_pos)
 
@@ -95,6 +97,8 @@ class SceneManager:
         for room in self.rooms:
             room.reparentTo(self.app.render)
         self.current_room = self.rooms[0]
+        self._criar_sala_final()
+
         print("\n🧱 [DEBUG] Estrutura da cena após criar todas as salas:")
 
     def load_next_room(self) -> None:
@@ -486,15 +490,33 @@ class SceneManager:
             if t is None:
                 continue
             t.setBg((1,0,0,.7) if i == self.room_index else (0,0,0,.6))
+        if i == len(self.rooms) - 1 and not self._limpeza_feita:
+            self._limpeza_feita = True
+            print("[SceneManager] Limpando salas anteriores...")
+            for sala in self.rooms[:-1]:
+                sala.detachNode()
 
     def atualizar_sala_baseada_na_posicao(self, player_pos: LVector3f) -> None:
         for i, sala_pos in enumerate(self.room_positions):
-            if (abs(player_pos.getX()-sala_pos.getX()) <= self.CELL/2 and
-                abs(player_pos.getY()-sala_pos.getY()) <= self.CELL/2):
+            if (abs(player_pos.getX() - sala_pos.getX()) <= self.CELL / 2 and
+                    abs(player_pos.getY() - sala_pos.getY()) <= self.CELL / 2):
+
                 if self.room_index != i:
                     self.room_index = i
+
+                    # Mostra no mapa, se visível
                     if self._mapa_visivel:
                         self.atualizar_sala_atual_no_mapa()
+
+                    # Verifica se entrou na Sala Final
+                    if i == len(self.rooms) - 1 and not self._limpeza_feita:
+                        self._limpeza_feita = True
+                        print("[SceneManager] Entrou na Sala Final. Limpando tudo...")
+
+                        for sala in self.rooms:
+                            if sala != self.sala_final_node:
+                                sala.removeNode()
+
                 return
 
     # ─────────────── HELPERS ───────────────
@@ -512,3 +534,56 @@ class SceneManager:
     @staticmethod
     def _opposite(d: str | None) -> str | None:
         return {"north":"south","south":"north","east":"west","west":"east"}.get(d)
+
+    def _criar_sala_final(self):
+        sala_final = NodePath("SalaFinal")
+        offset = self._direction_to_offset(self.exit_dir or "north") * 1.5
+        sala_final.setPos(self.rooms[-1].getPos() + offset)
+        self.sala_final_node = sala_final
+        self.room_positions.append(sala_final.getPos())
+        self.rooms.append(sala_final)
+
+        # Cria uma esfera ao redor
+        sphere = self.app.loader.loadModel("models/misc/sphere")
+        sphere.reparentTo(sala_final)
+        sphere.setScale(500)
+        sphere.setTwoSided(True)
+        sphere.setPos(0, 0, 0)
+
+        # Aplica textura de forma robusta
+        texture = self.app.loader.loadTexture("assets/textures/final/final.png")
+        texture.setWrapU(texture.WMClamp)
+        texture.setWrapV(texture.WMClamp)
+
+        ts = TextureStage.getDefault()
+        sphere.setTexture(ts, texture)
+        sphere.setTexGen(ts, TexGenAttrib.MEyeSphereMap)
+
+        # Faz a esfera girar lentamente
+        giro = LerpHprInterval(sphere, duration=60, hpr=(360, 0, 0))
+        giro.loop()
+
+        # Chão invisível
+        cm = CardMaker("final_floor")
+        cm.setFrame(-self.WALL_LEN, self.WALL_LEN, -self.WALL_LEN, self.WALL_LEN)
+        floor = sala_final.attachNewNode(cm.generate())
+        floor.setHpr(0, -90, 0)
+        floor.setZ(0)
+        floor.setTransparency(True)
+        floor.setColor(1, 1, 1, 0.02)  # invisível mas funcional
+
+        # Texto final
+        texto = OnscreenText(
+            text="Parabéns!\nVocê chegou à sala final!",
+            pos=(0, 0),
+            scale=0.1,
+            fg=(1, 1, 0.6, 1),
+            align=TextNode.ACenter,
+            mayChange=False,
+            wordwrap=20,
+            bg=(0, 0, 0, 0.8)
+        )
+        texto.reparentTo(sala_final)
+
+        self._tela_final = texto
+        sala_final.reparentTo(self.app.render)
