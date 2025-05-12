@@ -385,16 +385,14 @@ class SceneManager:
         blocked = {self.exit_dir}
         if entry_dir:
             blocked.add(entry_dir)
-        decor_dirs = [d for d in ("north", "south", "west", "east")
-                      if d not in blocked]
+        decor_dirs = [d for d in ("north", "south", "west", "east") if d not in blocked]
 
         pos_map = {
-            "north": (0,  self.WALL_LEN - 1.2, 0),
+            "north": (0, self.WALL_LEN - 1.2, 0),
             "south": (0, -self.WALL_LEN + 1.2, 0),
-            "west":  (-self.WALL_LEN + 1.2, 0, 0),
-            "east":  ( self.WALL_LEN - 1.2, 0, 0),
+            "west": (-self.WALL_LEN + 1.2, 0, 0),
+            "east": (self.WALL_LEN - 1.2, 0, 0),
         }
-        heading_map = {"north": 180, "south": 0, "west": 90, "east": 270}
 
         obj_dir = Path("assets/models/objects")
         obj_paths = list(obj_dir.glob("*.obj"))
@@ -406,6 +404,8 @@ class SceneManager:
 
         for d in decor_dirs:
             base_x, base_y, base_z = pos_map[d]
+            dir_vec = LVector3f(-base_x, -base_y, 0).normalized()
+
             for _ in range(random.randint(1, 3)):
                 model_path = random.choice(obj_paths)
 
@@ -419,7 +419,9 @@ class SceneManager:
                         model = self.app.loader.loadModel(str(model_path))
                         model.setPos(pos)
                         model.setScale(random.uniform(2.2, 3.2))
-                        model.setH(heading_map[d] + 90)
+
+                        heading = degrees(atan2(dir_vec.getY(), dir_vec.getX()))
+                        model.setH(heading)
 
                         min_bound, _ = model.getTightBounds()
                         if min_bound:
