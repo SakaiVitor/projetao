@@ -524,7 +524,7 @@ class SceneManager:
                         self.atualizar_sala_atual_no_mapa()
 
                     # Verifica se entrou na Sala Final
-                    if i == len(self.rooms) - 1 and not self._limpeza_feita:
+                    if i == len(self.rooms)  and not self._limpeza_feita:
                         self._limpeza_feita = True
                         print("[SceneManager] Entrou na Sala Final. Limpando tudo...")
                         self._criar_sala_final()  # ⬅️ Adicione aqui!
