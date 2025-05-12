@@ -21,55 +21,35 @@ class NPCManager:
 
         self.qa_triples = [
             {
-                "question": "Sou um gênio que sai de uma lâmpada e realiza três desejos. Quem sou eu?",
-                "answers": ["Gênio da Lâmpada", "Genie", "Gênio", "Gênio do Aladdin"],
-                "threshold": 0.65
-            },
-            {
-                "question": "Com capa preta, defendo Gotham à noite. Quem sou?",
-                "answers": ["Batman", "O Cavaleiro das Trevas", "Bruce Wayne"],
-                "threshold": 0.7
-            },
-            {
                 "question": "Sou pequeno, verde, mestre da Força. Quem sou?",
                 "answers": ["Yoda", "Mestre Yoda"],
                 "threshold": 0.7
             },
             {
-                "question": "Salvei vidas e enfrentei horrores no Titanic. Quem sou?",
-                "answers": ["Jack", "Jack Dawson", "Leonardo DiCaprio"],
-                "threshold": 0.68
-            },
-            {
-                "question": "Comandante de um navio estelar, exploro a fronteira final. Quem sou?",
-                "answers": ["Capitão Kirk", "James T. Kirk", "Kirk"],
+                "question": "Você compra para comer, mas jamais comerá?",
+                "answers": ["Prato", "Talher", "Garfo", "Faca", "Colher"],
                 "threshold": 0.7
             },
             {
-                "question": "Sou feito de um metal poderoso e carrego um escudo com uma estrela. Quem sou?",
-                "answers": ["Capitão América", "Steve Rogers"],
+                "question": "Se tiram minha pele, eu não choro, mas você, sim. Quem sou eu?",
+                "answers": ["Cebola"],
                 "threshold": 0.7
             },
             {
-                "question": "Com uma varinha e uma cicatriz na testa, enfrento o mal. Quem sou?",
-                "answers": ["Harry Potter"],
-                "threshold": 0.75
-            },
-            {
-                "question": "Sou um artefato com poder de controlar o tempo. Quem sou?",
-                "answers": ["Ampulheta", "Ampulheta do Tempo", "Time Turner"],
-                "threshold": 0.6
-            },
-            {
-                "question": "Meu criador é Tony Stark. Sou uma armadura com inteligência. Quem sou?",
-                "answers": ["Homem de Ferro", "Iron Man", "Tony Stark"],
-                "threshold": 0.7
-            },
-            {
-                "question": "Sou uma bola dourada veloz usada em um esporte mágico. Quem sou?",
-                "answers": ["Pomo de Ouro", "Golden Snitch"],
+                "question": "Tenho cara, mas não tenho corpo. Quem sou eu?",
+                "answers": ["Moeda", "Relógio", "Nota", "Máscara"],
                 "threshold": 0.65
             },
+            {
+                "question": "Se sou aberta, espalho desgraça; se permaneço fechada, resta a esperança. O que sou?",
+                "answers": ["Caixa de Pandora", "A Caixa de Pandora"],
+                "threshold": 0.7
+            },
+            {
+                "question": "Só posso ser empunhada pelo verdadeiro rei da Bretanha. O que sou?",
+                "answers": ["Excalibur", "Espada Excalibur"],
+                "threshold": 0.8
+            }
         ]
 
     def spawn_npc(self, *, door_node=None, npc_scale=3.0) -> NodePath:
