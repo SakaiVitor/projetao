@@ -13,6 +13,8 @@ from panda3d.core import (
 
 from direct.gui.OnscreenText import OnscreenText
 from direct.task import Task
+
+from core.load_wrapper import load_model_with_default_material
 from npc.npc_manager import NPCManager
 
 
@@ -303,7 +305,7 @@ class SceneManager:
 
         # 🎯 Colisor baseado na escala atual
         scale = door.getScale()
-        box = CollisionBox((0, 0, 0), 0.5, 0.5, scale.z / 2)
+        box = CollisionBox((0, 0, 0), 3, 3, scale.z / 2)
         col_node = CollisionNode(f"col-door-{self.room_index}-{d}")
         col_node.addSolid(box)
         col_node.setIntoCollideMask(BitMask32.bit(1))  # mesma máscara das paredes
@@ -361,7 +363,7 @@ class SceneManager:
         dir_vec = (porta_pos - LVector3f(0, 0, 0)).normalized()
         perp_vec = LVector3f(-dir_vec.getY(), dir_vec.getX(), 0)
 
-        npc_pos = porta_pos - dir_vec * 3.0 + perp_vec * 1.5
+        npc_pos = porta_pos - dir_vec * 3.5 + perp_vec * 3.5
 
         npc_scale = 3.0
         npc = self.npc_manager.spawn_npc(door_node=door_node, npc_scale=npc_scale)
@@ -427,7 +429,7 @@ class SceneManager:
                     pos += dir_vec * 1.0
 
                     if all((pos - p).length() >= 1.5 for p in placed):
-                        model = self.app.loader.loadModel(str(model_path))
+                        model = load_model_with_default_material(self.app.loader, str(model_path))
                         model.setPos(pos)
                         model.setScale(random.uniform(2.2, 3.2))
 

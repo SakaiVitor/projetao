@@ -3,6 +3,8 @@ from pathlib import Path
 from direct.task import Task
 import random
 from math import sin
+
+from core.load_wrapper import load_model_with_default_material
 from prompt.quiz_system import QuizSystem
 from sentence_transformers import util
 from direct.interval.LerpInterval import LerpColorScaleInterval, LerpPosInterval
@@ -85,7 +87,7 @@ class NPCManager:
         npc = NodePath("npc")
         npc.reparentTo(self.app.render)
 
-        model_node = self.app.loader.loadModel(Filename.from_os_specific(str(model_path)))
+        model_node = load_model_with_default_material(self.app.loader, str(model_path))
         model_node.setName("model_node")
         model_node.reparentTo(npc)
 
@@ -128,7 +130,7 @@ class NPCManager:
             player_node = getattr(self.app.player_controller, "node", None)
             if player_node:
                 distance = (npc.getPos(self.app.render) - player_node.getPos(self.app.render)).length()
-                node.show() if distance < 15.0 else node.hide()
+                node.show() if distance < 10.0 else node.hide()
             return Task.cont
 
         self.app.taskMgr.add(update_speech, f"text-follow-{id(npc)}")
