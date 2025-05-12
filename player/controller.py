@@ -1,6 +1,8 @@
 from direct.showbase.ShowBaseGlobal import globalClock
 from panda3d.core import Vec3, WindowProperties
 from panda3d.core import CollisionTraverser, CollisionHandlerPusher, CollisionNode, CollisionSphere, BitMask32, CollisionCapsule
+from direct.showbase.Audio3DManager import Audio3DManager
+import random, time
 
 class PlayerController:
     def __init__(self, app):
@@ -53,6 +55,10 @@ class PlayerController:
 
         # ── Loop de atualização ───────────────────────────────
         self.app.taskMgr.add(self.update, "PlayerControllerUpdate")
+
+        self.audio3d = Audio3DManager(self.app.sfxManagerList[0], self.app.camera)
+        self.ultimo_passo = 0.0
+        self.intervalo_passo = 0.65  # bem espaçados
 
     def setup_controls(self):
         for key in self.keys:
@@ -107,12 +113,16 @@ class PlayerController:
             world_dir = self.node.getQuat().xform(direction)
             # self.node.setPos(self.node.getPos() + world_dir * self.speed * dt)
             self.node.setFluidPos(self.node.getPos() + world_dir * self.speed * dt)
+            agora = time.time()
+            if agora - self.ultimo_passo > self.intervalo_passo:
+                som = self.app.loader.loadSfx("assets/sounds/passo.wav")
+                som.setVolume(1.0)
+                som.play()
+                self.ultimo_passo = agora
 
         self.node.setZ(2)
 
         # ── COLISÃO ─────────────────────────────────
         self.cTrav.traverse(self.app.render)
-
-        #print(f"[controller.py - update] Posição do jogador: {self.node.getPos()}")
 
         return task.cont
