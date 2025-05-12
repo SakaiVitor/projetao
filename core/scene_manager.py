@@ -284,7 +284,6 @@ class SceneManager:
         else:
             door.setScale(self.DOOR_THK, DOOR_VISIBLE_WIDTH, self.WALL_ALT + .5)
 
-        # ⚠️ Correção de alinhamento apenas para leste/oeste
         offset_fix = {
             "east": LVector3f(0, -0.45, 0),
             "west": LVector3f(0, -0.45, 0),
@@ -293,6 +292,14 @@ class SceneManager:
         final_pos = LVector3f(*pos_map[d]) + offset_fix
         door.setPos(final_pos)
         door.reparentTo(parent)
+
+        # 🎯 Colisor baseado na escala atual
+        scale = door.getScale()
+        box = CollisionBox((0, 0, 0), 0.5, 0.5, scale.z / 2)
+        col_node = CollisionNode(f"col-door-{self.room_index}-{d}")
+        col_node.addSolid(box)
+        col_node.setIntoCollideMask(BitMask32.bit(1))  # mesma máscara das paredes
+        door.attachNewNode(col_node)
 
         if d == self.exit_dir:
             self.door_node = door

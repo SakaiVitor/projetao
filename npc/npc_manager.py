@@ -147,7 +147,6 @@ class NPCManager:
         door_name = door_node.getName()
         print(f"🟨 Encontrada porta: {door_name}")
 
-        # Aplica transparência
         door_node.setTransparency(TransparencyAttrib.MAlpha)
         door_node.setColorScale(1, 1, 1, 1)
 
@@ -161,7 +160,13 @@ class NPCManager:
         def finalizar():
             print(f"🚪 Fade-out concluído. Tentando remover {door_name}")
             if not door_node.isEmpty():
-                door_node.hide()  # para garantir sumiço visual imediato
+                # ❌ remover o colisor explicitamente
+                col_np = door_node.find("**/+CollisionNode")
+                if not col_np.isEmpty():
+                    print(f"🗑️ Removendo colisor: {col_np.getName()}")
+                    col_np.removeNode()
+
+                door_node.hide()
                 door_node.removeNode()
                 print("🚪 Porta removida com sucesso.")
             else:
