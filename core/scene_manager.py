@@ -597,6 +597,11 @@ class SceneManager:
             wordwrap=20,
             bg=(0, 0, 0, 0.8)
         )
+        som_final = self.app.loader.loadSfx("assets/sounds/final.wav")
+        som_final.setLoop(True)
+        som_final.setVolume(0.7)
+        som_final.play()
+        self.som_final = som_final
         texto.reparentTo(sala_final)
         self._tela_final = texto
         self._mensagem_final = OnscreenText(
