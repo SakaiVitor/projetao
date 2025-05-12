@@ -3,7 +3,7 @@ from pathlib import Path
 from direct.task import Task
 import random
 from math import sin
-
+from direct.showbase.Audio3DManager import Audio3DManager
 from core.load_wrapper import load_model_with_default_material
 from prompt.quiz_system import QuizSystem
 from sentence_transformers import util
@@ -20,6 +20,8 @@ class NPCManager:
         self.spawned_models = set()
         self.quiz_system = QuizSystem()
         self.npcs: list[NodePath] = []
+        self.audio3d = Audio3DManager(self.app.sfxManagerList[0], self.app.camera)
+        self.som_porta = self.audio3d.loadSfx("assets/sounds/porta-abrindo.wav")
 
         self.qa_triples = [
             {
@@ -149,11 +151,15 @@ class NPCManager:
             print("⚠️ Porta inválida (NodePath vazio).")
             return
 
+
         door_name = door_node.getName()
         print(f"🟨 Encontrada porta: {door_name}")
 
         door_node.setTransparency(TransparencyAttrib.MAlpha)
         door_node.setColorScale(1, 1, 1, 1)
+        if self.som_porta:
+            self.audio3d.attachSoundToObject(self.som_porta, door_node)
+            self.som_porta.play()
 
         fade = LerpColorScaleInterval(
             door_node,
