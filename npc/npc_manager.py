@@ -5,8 +5,8 @@ import random
 from math import sin
 from prompt.quiz_system import QuizSystem
 from sentence_transformers import util
-from direct.interval.LerpInterval import LerpColorScaleInterval
-from direct.interval.MetaInterval import Sequence
+from direct.interval.LerpInterval import LerpColorScaleInterval, LerpPosInterval
+from direct.interval.MetaInterval import Sequence, Parallel
 from direct.interval.FunctionInterval import Func
 
 
@@ -56,6 +56,17 @@ class NPCManager:
                 "threshold": 0.7
             },
         ]
+
+        self.frases_parabens = [
+            "Muito bem! Você acertou!",
+            "Resposta correta, pode avançar!",
+            "Parabéns! Continue assim.",
+            "Boa! A porta está aberta!",
+            "Você é rápido no raciocínio!",
+            "Excelente resposta!",
+            "Mandou bem, siga em frente!"
+        ]
+
         self.perguntas_restantes = self.qa_triples.copy()
 
     def spawn_npc(self, *, door_node=None, npc_scale=3.0) -> NodePath:
@@ -79,7 +90,7 @@ class NPCManager:
         model_node.reparentTo(npc)
 
         def breathing_task(task, node=model_node):
-            amplitude = 0.03 * npc_scale
+            amplitude = 0.01 * npc_scale
             scale = npc_scale + amplitude * sin(task.time * 2)
             node.setScale(scale)
             return Task.cont
@@ -159,6 +170,41 @@ class NPCManager:
                     col_np.removeNode()
 
                 door_node.hide()
+
+                # Mostra frase de parabéns no NPC correspondente
+                for npc in self.npcs:
+                    if npc.getPythonTag("door_node") == door_node:
+                        speech_node = npc.find("**/speech_node")
+                        if not speech_node.isEmpty():
+                            frase = random.choice(self.frases_parabens)
+                            text_node = TextNode("npc-text")
+                            text_node.setText(frase)
+                            text_node.setAlign(TextNode.ACenter)
+                            text_node.setTextColor(1, 1, 0.5, 1)
+                            text_node.setCardColor(0, 0, 0, 1)
+                            text_node.setCardAsMargin(0.3, 0.3, 0.2, 0.2)
+
+                            new_node = NodePath(text_node.generate())
+                            new_node.setScale(0.2)
+                            new_node.setBillboardAxis()
+                            new_node.setLightOff()
+                            new_node.setDepthWrite(False)
+                            new_node.setDepthTest(False)
+                            new_node.setZ(2)  # ⬆️ sobe 2 unidades
+
+                            speech_node.removeNode()
+                            new_node.setName("speech_node")
+                            new_node.reparentTo(npc)
+
+                            # ⏳ remove depois de 3 segundos
+                            def hide_text(task, node=new_node):
+                                if not node.isEmpty():
+                                    node.removeNode()
+                                return Task.done
+
+                            self.app.taskMgr.doMethodLater(3, hide_text, f"remove-speech-{id(new_node)}")
+                        break
+
                 door_node.removeNode()
                 print("🚪 Porta removida com sucesso.")
             else:
@@ -170,7 +216,38 @@ class NPCManager:
                 for path in restantes:
                     print("↪️", path)
 
-        Sequence(fade, Func(finalizar)).start()
+        # Detecta direção da porta com segurança
+        parts = door_name.split("_")
+        direction = parts[-1] if len(parts) >= 4 else "north"
+
+        # Vetor de deslizamento perpendicular à parede
+        slide_offset = {
+            "north": LVector3f(2.5, 0, 0),
+            "south": LVector3f(-2.5, 0, 0),
+            "east": LVector3f(0, -2.5, 0),
+            "west": LVector3f(0, 2.5, 0),
+        }.get(direction, LVector3f(2.5, 0, 0))
+
+        # Slide
+        slide = LerpPosInterval(
+            door_node,
+            duration=1.0,
+            pos=door_node.getPos() + slide_offset
+        )
+
+        # Fade-out
+        fade = LerpColorScaleInterval(
+            door_node,
+            duration=1.0,
+            startColorScale=(1, 1, 1, 1),
+            colorScale=(1, 1, 1, 0)
+        )
+
+        # Executa em paralelo (ao mesmo tempo)
+        Sequence(
+            Parallel(fade, slide),
+            Func(finalizar)
+        ).start()
 
     def try_prompt_nearby(self, prompt: str, obj_pos, radius: float = 5) -> bool:
         model = self.quiz_system.model

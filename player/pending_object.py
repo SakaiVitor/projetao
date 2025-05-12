@@ -1,4 +1,5 @@
 import asyncio, aiohttp, aiofiles, tempfile, uuid
+from math import degrees, atan2
 from pathlib import Path
 from direct.task import Task
 from direct.gui.OnscreenText import OnscreenText
@@ -119,6 +120,19 @@ class PendingObject:
 
         self.final_model_node.setPos(hit)
         self._align_to_ground(self.final_model_node, hit)
+        # Faz o objeto rotacionar para "olhar" para a câmera
+        obj_pos = self.final_model_node.getPos(self.app.render)
+        cam_pos = self.app.camera.getPos(self.app.render)
+
+        # Direção da câmera em relação ao objeto no plano X/Y
+        direction = (cam_pos - obj_pos)
+        direction.setZ(0)  # ignora altura para rotação apenas no plano horizontal
+
+        if direction.length_squared() > 0:
+            direction.normalize()
+            heading = degrees(atan2(direction.getX(), direction.getY()))
+            self.final_model_node.setH(heading)
+
         self.final_model_node.setTransparency(False)
         self.final_model_node.setColorScale(1, 1, 1, 1)
         self.rotation.finish()

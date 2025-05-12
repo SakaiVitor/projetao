@@ -10,6 +10,7 @@ from panda3d.core import (
     CollisionPlane, BitMask32, Plane, TextureStage, TexGenAttrib, TransformState,
     LMatrix4f, LVecBase3f, TextNode, Filename, Texture
 )
+
 from direct.gui.OnscreenText import OnscreenText
 from direct.task import Task
 from npc.npc_manager import NPCManager
@@ -20,7 +21,7 @@ class SceneManager:
     CELL      = 20      # distância entre salas (grade)
     WALL_LEN  = 10      # meia-largura da sala
     WALL_ALT  = 5       # altura da parede
-    WALL_THK  = 1       # espessura da parede
+    WALL_THK  = 2       # espessura da parede
     DOOR_W    = 2       # largura da abertura da porta
     DOOR_THK  = .4      # profundidade da porta (porta fina)
 
@@ -97,7 +98,6 @@ class SceneManager:
         for room in self.rooms:
             room.reparentTo(self.app.render)
         self.current_room = self.rooms[0]
-        self._criar_sala_final()
 
         print("\n🧱 [DEBUG] Estrutura da cena após criar todas as salas:")
 
@@ -256,6 +256,10 @@ class SceneManager:
             self._apply_room_texture(parent, piece)
             piece.reparentTo(parent)
 
+            self._apply_room_texture(parent, piece)
+            piece.reparentTo(parent)
+            piece.setTexScale(TextureStage.getDefault(), 1, 1)
+
             # ── Collider corretamente centralizado ──
             scale = piece.getScale()
             half_x, half_y, half_z = scale.x / 8, scale.y / 8, scale.z
@@ -335,6 +339,10 @@ class SceneManager:
         self._apply_room_texture(parent, wall)
         wall.reparentTo(parent)
 
+        self._apply_room_texture(parent, wall)
+        wall.reparentTo(parent)
+        wall.setTexScale(TextureStage.getDefault(), 1, 1)
+
         wall_cnode = CollisionNode(f"wall-col-{d}")
         wall_cnode.addSolid(box)
         wall_cnode.setIntoCollideMask(BitMask32.bit(1))
@@ -371,7 +379,7 @@ class SceneManager:
                 altura_modelo = (max_bound.getZ() - min_bound.getZ()) * scale_z
                 centro_z_local = (min_bound.getZ() + max_bound.getZ()) / 2 * scale_z
                 # move o modelo para que a base fique no chão
-                npc.setZ(npc.getZ() - centro_z_local - altura_modelo / 2)
+                npc.setZ(npc.getZ() - centro_z_local - altura_modelo / 2 + 0.1)
 
             speech_node = npc.find("**/speech_node")
             if not speech_node.isEmpty():
@@ -514,6 +522,7 @@ class SceneManager:
                     if i == len(self.rooms) - 1 and not self._limpeza_feita:
                         self._limpeza_feita = True
                         print("[SceneManager] Entrou na Sala Final. Limpando tudo...")
+                        self._criar_sala_final()  # ⬅️ Adicione aqui!
 
                         for sala in self.rooms:
                             if sala != self.sala_final_node:
@@ -552,7 +561,6 @@ class SceneManager:
         sphere.setTwoSided(True)
         sphere.setPos(0, 0, 0)
 
-        # Aplica textura de forma robusta
         texture = self.app.loader.loadTexture("assets/textures/final/final.png")
         texture.setWrapU(texture.WMClamp)
         texture.setWrapV(texture.WMClamp)
@@ -561,7 +569,6 @@ class SceneManager:
         sphere.setTexture(ts, texture)
         sphere.setTexGen(ts, TexGenAttrib.MEyeSphereMap)
 
-        # Faz a esfera girar lentamente
         giro = LerpHprInterval(sphere, duration=60, hpr=(360, 0, 0))
         giro.loop()
 
@@ -572,9 +579,9 @@ class SceneManager:
         floor.setHpr(0, -90, 0)
         floor.setZ(0)
         floor.setTransparency(True)
-        floor.setColor(1, 1, 1, 0.02)  # invisível mas funcional
+        floor.setColor(1, 1, 1, 0.02)
 
-        # Texto final
+        # Texto 3D na sala
         texto = OnscreenText(
             text="Parabéns!\nVocê chegou à sala final!",
             pos=(0, 0),
@@ -586,6 +593,32 @@ class SceneManager:
             bg=(0, 0, 0, 0.8)
         )
         texto.reparentTo(sala_final)
-
         self._tela_final = texto
+        self._mensagem_final = OnscreenText(
+            text=(
+                "Você atravessou corredores, respondeu enigmas,\n"
+                "encarou o desconhecido sem hesitar.\n\n"
+                "Agora, o fim da jornada revela sua verdadeira natureza.\n"
+                "Não há aplausos, nem troféus…\n"
+                "Apenas silêncio, reflexo… e você mesmo.\n\n"
+                "Resta apenas uma pergunta:\n"
+                "o que fará com o que encontrou dentro de si?"
+            ),
+            pos=(0, 0),
+            scale=0.06,
+            fg=(1, 1, 1, 1),
+            align=TextNode.ACenter,
+            wordwrap=42,
+            mayChange=False,
+            bg=(0, 0, 0, 0.8)
+        )
+
+        def remover_mensagem(task):
+            if self._mensagem_final:
+                self._mensagem_final.destroy()
+            return Task.done
+
+        self.app.taskMgr.doMethodLater(10, remover_mensagem, "remover-mensagem-final")
+
         sala_final.reparentTo(self.app.render)
+

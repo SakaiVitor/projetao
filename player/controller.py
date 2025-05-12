@@ -38,7 +38,9 @@ class PlayerController:
         self.pusher = CollisionHandlerPusher()
 
         cnode = CollisionNode("playerCollider")
-        cnode.addSolid(CollisionCapsule(0, 0, 0, 0, 0, 1.8, 0.5))  # esfera no centro do dummy
+        cnode.addSolid(CollisionCapsule(0, 0, 0, 0, 0, 5, 0.8))
+        self.app.camera.setPos(0, -0.15, 0.75)
+
         cnode.setFromCollideMask(BitMask32.bit(1))
         cnode.setIntoCollideMask(BitMask32.allOff())
 
