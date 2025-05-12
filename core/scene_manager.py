@@ -586,7 +586,7 @@ class SceneManager:
         floor.setTransparency(True)
         floor.setColor(1, 1, 1, 0.02)
 
-        # Texto 3D na sala
+        # Texto principal
         texto = OnscreenText(
             text="Parabéns!\nVocê chegou à sala final!",
             pos=(0, 0),
@@ -597,13 +597,10 @@ class SceneManager:
             wordwrap=20,
             bg=(0, 0, 0, 0.8)
         )
-        som_final = self.app.loader.loadSfx("assets/sounds/final.wav")
-        som_final.setLoop(True)
-        som_final.setVolume(0.7)
-        som_final.play()
-        self.som_final = som_final
         texto.reparentTo(sala_final)
         self._tela_final = texto
+
+        # Mensagem reflexiva
         self._mensagem_final = OnscreenText(
             text=(
                 "Você atravessou corredores, respondeu enigmas,\n"
@@ -623,12 +620,21 @@ class SceneManager:
             bg=(0, 0, 0, 0.8)
         )
 
-        def remover_mensagem(task):
-            if self._mensagem_final:
-                self._mensagem_final.destroy()
-            return Task.done
+        # Música final que toca uma vez
+        self.som_final = self.app.loader.loadSfx("assets/sounds/final.wav")
+        self.som_final.setLoop(False)
+        self.som_final.setVolume(0.7)
+        self.som_final.play()
 
-        self.app.taskMgr.doMethodLater(20, remover_mensagem, "remover-mensagem-final")
+        # Tocar epílogo quando a primeira terminar
+        def verificar_fim(task):
+            if self.som_final.status() == self.som_final.READY:
+                self.som_epilogo = self.app.loader.loadSfx("assets/sounds/epilogo.wav")
+                self.som_epilogo.setLoop(True)
+                self.som_epilogo.setVolume(0.6)
+                self.som_epilogo.play()
+                return task.done
+            return task.cont
 
-        sala_final.reparentTo(self.app.render)
+        self.app.taskMgr.add(verificar_fim, "verificar_som_final")
 
