@@ -423,6 +423,9 @@ class SceneManager:
                            if d in ("north", "south")
                            else LVector3f(base_x, base_y + offset, base_z + .2))
 
+                    # Afastar da parede em 1 unidade na direção oposta
+                    pos += dir_vec * 1.0
+
                     if all((pos - p).length() >= 1.5 for p in placed):
                         model = self.app.loader.loadModel(str(model_path))
                         model.setPos(pos)
@@ -618,7 +621,7 @@ class SceneManager:
                 self._mensagem_final.destroy()
             return Task.done
 
-        self.app.taskMgr.doMethodLater(10, remover_mensagem, "remover-mensagem-final")
+        self.app.taskMgr.doMethodLater(20, remover_mensagem, "remover-mensagem-final")
 
         sala_final.reparentTo(self.app.render)
 
