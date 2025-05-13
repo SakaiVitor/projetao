@@ -120,14 +120,11 @@ class PendingObject:
 
         self.final_model_node.setPos(hit)
         self._align_to_ground(self.final_model_node, hit)
-        # Faz o objeto rotacionar para "olhar" para a câmera
+
         obj_pos = self.final_model_node.getPos(self.app.render)
         cam_pos = self.app.camera.getPos(self.app.render)
-
-        # Direção da câmera em relação ao objeto no plano X/Y
-        direction = (cam_pos - obj_pos)
-        direction.setZ(0)  # ignora altura para rotação apenas no plano horizontal
-
+        direction = cam_pos - obj_pos
+        direction.setZ(0)
         if direction.length_squared() > 0:
             direction.normalize()
             heading = degrees(atan2(direction.getX(), direction.getY()))
@@ -138,13 +135,26 @@ class PendingObject:
         self.rotation.finish()
         if self.progress_text:
             self.progress_text.destroy()
-        self.placed = True
-        self.position = hit  # salva posição final
 
-        # ------------ CHAMA O NPC MANAGER ------------
+        self.placed = True
+        self.position = hit
+
+        from panda3d.core import CollisionNode, CollisionSphere, BitMask32
+        bounds = self.final_model_node.getTightBounds()
+        if bounds and bounds[0] and bounds[1]:
+            min_pt, max_pt = bounds
+            center = (min_pt + max_pt) * 0.5
+            radius = (max_pt - min_pt).length() * 1
+
+            coll_node = CollisionNode(f"collision_{self.prompt}")
+            coll_node.addSolid(CollisionSphere(center, radius))
+            coll_np = self.final_model_node.attachNewNode(coll_node)
+            coll_np.setCollideMask(BitMask32.bit(1))
+
+        # Chama o NPC manager
         self.app.scene_manager.npc_manager.try_prompt_nearby(
             self.prompt,
-            self.position  # Point3 com X,Y,Z
+            self.position
         )
 
     def _normalize_scale(self, node: NodePath, desired_size: float = 2.5):

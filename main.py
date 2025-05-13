@@ -41,8 +41,7 @@ class Game(ShowBase):
 
         # input
         self.accept("mouse1", self.placer.confirm_preview_under_cursor)
-        self.accept("m", self.scene_manager.toggle_mapa_resumo)
-        self.accept("M", self.scene_manager.toggle_mapa_resumo)
+        self.accept("alt", self.scene_manager.toggle_mapa_resumo)
 
         # self.cTrav.showCollisions(self.render)
 
