@@ -634,7 +634,7 @@ class SceneManager:
 
         # Tocar epílogo quando a primeira terminar
         def verificar_fim(task):
-            if self.som_final.status() == AudioSound.DONE:
+            if self.som_final.status() == 4:
                 self.som_epilogo = self.app.loader.loadSfx("assets/sounds/epilogo.wav")
                 self.som_epilogo.setLoop(True)
                 self.som_epilogo.setVolume(0.6)
