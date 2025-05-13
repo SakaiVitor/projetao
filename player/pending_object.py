@@ -141,15 +141,6 @@ class PendingObject:
 
         from panda3d.core import CollisionNode, CollisionSphere, BitMask32
         bounds = self.final_model_node.getTightBounds()
-        if bounds and bounds[0] and bounds[1]:
-            min_pt, max_pt = bounds
-            center = (min_pt + max_pt) * 0.5
-            radius = (max_pt - min_pt).length() * 1
-
-            coll_node = CollisionNode(f"collision_{self.prompt}")
-            coll_node.addSolid(CollisionSphere(center, radius))
-            coll_np = self.final_model_node.attachNewNode(coll_node)
-            coll_np.setCollideMask(BitMask32.bit(1))
 
         # Chama o NPC manager
         self.app.scene_manager.npc_manager.try_prompt_nearby(

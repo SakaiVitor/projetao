@@ -45,8 +45,8 @@ class NPCManager:
                 "threshold": 0.65
             },
             {
-                "question": "Se sou aberta, espalho desgraça; se permaneço fechada, resta a esperança. O que sou?",
-                "answers": ["Caixa de Pandora", "A Caixa de Pandora"],
+                "question": "O que é o que é: tem um pescoço, mas não tem cabeça?",
+                "answers": ["Garrafa", "Uma garrafa"],
                 "threshold": 0.7
             },
             {
@@ -55,8 +55,8 @@ class NPCManager:
                 "threshold": 0.8
             },
             {
-                "question": "Tenho chaves, mas não abro portas. Tenho notas, mas não sou dinheiro. Quem sou eu?",
-                "answers": ["Piano", "Teclado"],
+                "question": "O que é o que é: nasce grande e morre pequeno?",
+                "answers": ["Sabão", "Um sabão", "Sabonete", "lapís"],
                 "threshold": 0.7
             },
         ]
