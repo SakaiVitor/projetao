@@ -8,7 +8,7 @@ from direct.interval.LerpInterval import LerpHprInterval
 from panda3d.core import (
     NodePath, LVector3f, CardMaker, CollisionNode, CollisionBox, Point3, Vec3,
     CollisionPlane, BitMask32, Plane, TextureStage, TexGenAttrib, TransformState,
-    LMatrix4f, LVecBase3f, TextNode, Filename, Texture
+    LMatrix4f, LVecBase3f, TextNode, Filename, Texture, AudioSound
 )
 
 from direct.gui.OnscreenText import OnscreenText
@@ -634,7 +634,7 @@ class SceneManager:
 
         # Tocar epílogo quando a primeira terminar
         def verificar_fim(task):
-            if self.som_final.status() == self.som_final.READY:
+            if self.som_final.status() == AudioSound.DONE:
                 self.som_epilogo = self.app.loader.loadSfx("assets/sounds/epilogo.wav")
                 self.som_epilogo.setLoop(True)
                 self.som_epilogo.setVolume(0.6)
