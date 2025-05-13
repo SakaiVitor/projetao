@@ -571,8 +571,8 @@ class SceneManager:
         texture.setWrapV(texture.WMClamp)
 
         ts = TextureStage.getDefault()
-        sphere.setTexture(ts, texture)
-        sphere.setTexGen(ts, TexGenAttrib.MEyeSphereMap)
+        sphere.setTexGen(ts, TexGenAttrib.MEyeSphereMap)  # define tipo de mapeamento
+        sphere.setTexture(ts, texture)  # aplica textura
 
         giro = LerpHprInterval(sphere, duration=60, hpr=(360, 0, 0))
         giro.loop()
