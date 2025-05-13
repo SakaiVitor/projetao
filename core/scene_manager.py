@@ -567,12 +567,18 @@ class SceneManager:
         sphere.setPos(0, 0, 0)
 
         texture = self.app.loader.loadTexture("assets/textures/final/final.png")
+        print("[DEBUG] Textura carregada:", texture)
+        print("→ Tem imagem na RAM?", texture.hasRamImage())
         texture.setWrapU(texture.WMClamp)
         texture.setWrapV(texture.WMClamp)
 
         ts = TextureStage.getDefault()
-        sphere.setTexGen(ts, TexGenAttrib.MEyeSphereMap)  # define tipo de mapeamento
+        # remove qualquer TexGen
+        sphere.clearTexGen()
         sphere.setTexture(ts, texture)  # aplica textura
+
+        sphere.setColorScale(1, 1, 1, 1)
+        sphere.setTransparency(False)
 
         giro = LerpHprInterval(sphere, duration=60, hpr=(360, 0, 0))
         giro.loop()
