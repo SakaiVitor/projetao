@@ -597,7 +597,7 @@ class SceneManager:
             wordwrap=20,
             bg=(0, 0, 0, 0.8)
         )
-        som_final = self.app.loader.loadSfx("assets/sounds/final.wav")
+        som_final = self.app.loader.loadSfx("assets/sounds/epilogo.wav")
         som_final.setLoop(True)
         som_final.setVolume(0.7)
         som_final.play()
